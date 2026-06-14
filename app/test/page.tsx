@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 
 const questions = [
   {
@@ -138,41 +138,8 @@ export default function TestPage() {
   const [submittedApplicationNumber, setSubmittedApplicationNumber] = useState("");
   const [submittedAccessCode, setSubmittedAccessCode] = useState("");
 
-  useEffect(() => {
-    const savedData = localStorage.getItem("nichogonia-test");
-
-    if (savedData) {
-      const data = JSON.parse(savedData);
-
-      setStarted(data.started || false);
-      setCurrentQuestion(data.currentQuestion || 0);
-      setFullName(data.fullName || "");
-      setAge(data.age || "");
-      setCountry(data.country || "");
-      setReason(data.reason || "");
-    }
-  }, []);
-
-  useEffect(() => {
-    localStorage.setItem(
-      "nichogonia-test",
-      JSON.stringify({
-        started,
-        currentQuestion,
-        fullName,
-        age,
-        country,
-        reason
-      })
-    );
-  }, [
-    started,
-    currentQuestion,
-    fullName,
-    age,
-    country,
-    reason
-  ]);
+  // Важно: прогресс теста больше не сохраняем в localStorage.
+  // Иначе следующий заявитель может попадать на старый 9-й вопрос.
 
   const question = secretQuestion || questions[currentQuestion];
 
@@ -182,16 +149,6 @@ export default function TestPage() {
 
   async function submitApplication() {
     if (submitStartedRef.current || isSubmitting) {
-      return;
-    }
-
-    const existingApplicationNumber = localStorage.getItem("application_number");
-    const existingAccessCode = localStorage.getItem("access_code");
-
-    if (existingApplicationNumber && existingAccessCode) {
-      setSubmittedApplicationNumber(existingApplicationNumber);
-      setSubmittedAccessCode(existingAccessCode);
-      setSubmitted(true);
       return;
     }
 
@@ -245,6 +202,13 @@ export default function TestPage() {
       setSubmittedAccessCode(accessCode);
 
       localStorage.removeItem("nichogonia-test");
+      setStarted(false);
+      setTestCompleted(false);
+      setUserAnswers([]);
+      setCompletedAnswers([]);
+      setCurrentQuestion(0);
+      setSecretQuestion(null);
+      setSecretUsed(false);
       setSubmitted(true);
     } catch (error) {
       console.log("SUBMIT APPLICATION ERROR:", error);
@@ -816,6 +780,15 @@ export default function TestPage() {
               }
 
               setShowError(false);
+              setUserAnswers([]);
+              setCompletedAnswers([]);
+              setCurrentQuestion(0);
+              setSecretQuestion(null);
+              setSecretUsed(false);
+              setTestCompleted(false);
+              submitStartedRef.current = false;
+              setIsSubmitting(false);
+              localStorage.removeItem("nichogonia-test");
               setStarted(true);
             }}
             className="
