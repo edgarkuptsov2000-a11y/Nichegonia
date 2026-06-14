@@ -107,15 +107,21 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  await sendNewApplicationToTelegram({
-    id: inserted.id,
-    full_name: fullName,
-    age,
-    country,
-    reason,
-    application_number: applicationNumber,
-    photo_url: photoUrl
-  });
+  try {
+    const telegramResult = await sendNewApplicationToTelegram({
+      id: inserted.id,
+      full_name: fullName,
+      age,
+      country,
+      reason,
+      application_number: applicationNumber,
+      photo_url: photoUrl
+    });
+
+    console.log("TELEGRAM NOTIFY RESULT:", telegramResult);
+  } catch (telegramError) {
+    console.log("TELEGRAM NOTIFY ERROR:", telegramError);
+  }
 
   return NextResponse.json({
     applicationNumber,

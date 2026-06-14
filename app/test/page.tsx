@@ -1,5 +1,6 @@
 "use client";
-import { useState, useEffect } from "react";
+
+import { useEffect, useRef, useState } from "react";
 
 const questions = [
   {
@@ -102,406 +103,535 @@ const secretQuestions = [
   }
 ];
 
-export default function TestPage() {
+type AnswerItem = {
+  question: string;
+  answer: string;
+};
 
-const [showError, setShowError] = useState(false);    
-
-const [started, setStarted] = useState(false);
-const [fullName, setFullName] = useState("");
-const [age, setAge] = useState("");
-const [country, setCountry] = useState("");
-const [reason, setReason] = useState("");
-const [photoFile, setPhotoFile] = useState<File | null>(null);
-const [currentQuestion, setCurrentQuestion] = useState(0);
 type SecretQuestion = {
   question: string;
   answers: string[];
 };
 
-const [secretQuestion, setSecretQuestion] = useState<SecretQuestion | null>(null);
-const [secretUsed, setSecretUsed] = useState(false);
-const [submitted, setSubmitted] = useState(false);
-const [submittedApplicationNumber, setSubmittedApplicationNumber] = useState("");
-const [submittedAccessCode, setSubmittedAccessCode] = useState("");
+export default function TestPage() {
+  const [showError, setShowError] = useState(false);
 
-const [userAnswers, setUserAnswers] = useState<
-  {
-    question: string;
-    answer: string;
-  }[]
->([]);
+  const [started, setStarted] = useState(false);
+  const [fullName, setFullName] = useState("");
+  const [age, setAge] = useState("");
+  const [country, setCountry] = useState("");
+  const [reason, setReason] = useState("");
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
 
-useEffect(() => {
-  const savedData = localStorage.getItem("nichogonia-test");
+  const [currentQuestion, setCurrentQuestion] = useState(0);
+  const [secretQuestion, setSecretQuestion] = useState<SecretQuestion | null>(null);
+  const [secretUsed, setSecretUsed] = useState(false);
 
-  if (savedData) {
-    const data = JSON.parse(savedData);
+  const [userAnswers, setUserAnswers] = useState<AnswerItem[]>([]);
+  const [completedAnswers, setCompletedAnswers] = useState<AnswerItem[]>([]);
+  const [testCompleted, setTestCompleted] = useState(false);
 
-    setStarted(data.started || false);
-    setCurrentQuestion(data.currentQuestion || 0);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const submitStartedRef = useRef(false);
 
-    setFullName(data.fullName || "");
-    setAge(data.age || "");
-    setCountry(data.country || "");
-    setReason(data.reason || "");
-  }
-}, []);
+  const [submitted, setSubmitted] = useState(false);
+  const [submittedApplicationNumber, setSubmittedApplicationNumber] = useState("");
+  const [submittedAccessCode, setSubmittedAccessCode] = useState("");
 
-useEffect(() => {
-  localStorage.setItem(
-    "nichogonia-test",
-    JSON.stringify({
-      started,
-      currentQuestion,
-      fullName,
-      age,
-      country,
-      reason
-    })
+  useEffect(() => {
+    const savedData = localStorage.getItem("nichogonia-test");
+
+    if (savedData) {
+      const data = JSON.parse(savedData);
+
+      setStarted(data.started || false);
+      setCurrentQuestion(data.currentQuestion || 0);
+      setFullName(data.fullName || "");
+      setAge(data.age || "");
+      setCountry(data.country || "");
+      setReason(data.reason || "");
+    }
+  }, []);
+
+  useEffect(() => {
+    localStorage.setItem(
+      "nichogonia-test",
+      JSON.stringify({
+        started,
+        currentQuestion,
+        fullName,
+        age,
+        country,
+        reason
+      })
+    );
+  }, [
+    started,
+    currentQuestion,
+    fullName,
+    age,
+    country,
+    reason
+  ]);
+
+  const question = secretQuestion || questions[currentQuestion];
+
+  const shuffledAnswers = [...question.answers].sort(
+    () => Math.random() - 0.5
   );
-}, [
-  started,
-  currentQuestion,
-  fullName,
-  age,
-  country,
-  reason
-]);
 
-const question = secretQuestion || questions[currentQuestion];
+  async function submitApplication() {
+    if (submitStartedRef.current || isSubmitting) {
+      return;
+    }
 
-const shuffledAnswers = [...question.answers].sort(
-  () => Math.random() - 0.5
-);
+    const existingApplicationNumber = localStorage.getItem("application_number");
+    const existingAccessCode = localStorage.getItem("access_code");
 
-if (submitted) {
-  const savedApplicationNumber =
-    typeof window !== "undefined"
-      ? localStorage.getItem("application_number")
-      : "";
+    if (existingApplicationNumber && existingAccessCode) {
+      setSubmittedApplicationNumber(existingApplicationNumber);
+      setSubmittedAccessCode(existingAccessCode);
+      setSubmitted(true);
+      return;
+    }
 
-  const savedAccessCode =
-    typeof window !== "undefined"
-      ? localStorage.getItem("access_code")
-      : "";
+    const answersToSubmit = completedAnswers.length > 0
+      ? completedAnswers
+      : userAnswers;
 
-  return (
-    <main className="min-h-screen bg-[#F7F6F3] flex items-center justify-center px-6">
-      <div className="
-        bg-white
-        rounded-3xl
-        shadow-2xl
-        p-12
-        max-w-2xl
-        w-full
-        text-center
-        border
-      ">
+    if (answersToSubmit.length === 0) {
+      alert("Ответы не найдены. Пройдите тест заново.");
+      return;
+    }
 
+    submitStartedRef.current = true;
+    setIsSubmitting(true);
+
+    try {
+      const formData = new FormData();
+
+      formData.append("fullName", fullName);
+      formData.append("age", age);
+      formData.append("country", country);
+      formData.append("reason", reason);
+      formData.append("answers", JSON.stringify(answersToSubmit));
+
+      if (photoFile) {
+        formData.append("photo", photoFile);
+      }
+
+      const response = await fetch("/api/applications/submit", {
+        method: "POST",
+        body: formData
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        console.log("SUBMIT APPLICATION ERROR:", result);
+        alert(result.error || "Не удалось отправить заявку.");
+        submitStartedRef.current = false;
+        setIsSubmitting(false);
+        return;
+      }
+
+      const applicationNumber = result.applicationNumber;
+      const accessCode = result.accessCode;
+
+      localStorage.setItem("application_number", applicationNumber);
+      localStorage.setItem("access_code", accessCode);
+
+      setSubmittedApplicationNumber(applicationNumber);
+      setSubmittedAccessCode(accessCode);
+
+      localStorage.removeItem("nichogonia-test");
+      setSubmitted(true);
+    } catch (error) {
+      console.log("SUBMIT APPLICATION ERROR:", error);
+      alert("Не удалось отправить заявку. Попробуйте ещё раз.");
+      submitStartedRef.current = false;
+      setIsSubmitting(false);
+    }
+  }
+
+  if (submitted) {
+    const savedApplicationNumber =
+      typeof window !== "undefined"
+        ? localStorage.getItem("application_number")
+        : "";
+
+    const savedAccessCode =
+      typeof window !== "undefined"
+        ? localStorage.getItem("access_code")
+        : "";
+
+    return (
+      <main className="min-h-screen bg-[#F7F6F3] flex items-center justify-center px-6">
         <div className="
-          w-24
-          h-24
-          mx-auto
-          mb-8
-          rounded-full
-          bg-green-100
-          flex
-          items-center
-          justify-center
-          text-5xl
+          bg-white
+          rounded-3xl
+          shadow-2xl
+          p-12
+          max-w-2xl
+          w-full
+          text-center
+          border
         ">
-          ✓
+          <div className="
+            w-24
+            h-24
+            mx-auto
+            mb-8
+            rounded-full
+            bg-green-100
+            flex
+            items-center
+            justify-center
+            text-5xl
+          ">
+            ✓
+          </div>
+
+          <h1 className="text-5xl font-bold mb-6 text-[#111111]">
+            ЗАЯВКА ОТПРАВЛЕНА
+          </h1>
+
+          <p className="text-lg text-[#111111] mb-4">
+            Ваше заявление принято Администрацией Президента Ничегонии.
+          </p>
+
+          <p className="text-lg text-[#111111] mb-8">
+            Ожидайте решения по вашему запросу.
+          </p>
+
+          <div className="
+            grid
+            grid-cols-1
+            sm:grid-cols-3
+            gap-4
+            mb-8
+          ">
+            <div className="
+              bg-[#F7F6F3]
+              border
+              border-gray-200
+              rounded-2xl
+              p-5
+              text-left
+            ">
+              <p className="
+                text-xs
+                uppercase
+                tracking-[0.2em]
+                text-gray-500
+                font-semibold
+                mb-3
+              ">
+                Номер заявки
+              </p>
+
+              <p className="
+                text-xl
+                font-black
+                text-[#111111]
+                break-all
+              ">
+                {submittedApplicationNumber || savedApplicationNumber || "Не создан"}
+              </p>
+            </div>
+
+            <div className="
+              bg-[#F7F6F3]
+              border
+              border-gray-200
+              rounded-2xl
+              p-5
+              text-left
+            ">
+              <p className="
+                text-xs
+                uppercase
+                tracking-[0.2em]
+                text-gray-500
+                font-semibold
+                mb-3
+              ">
+                Код доступа
+              </p>
+
+              <p className="
+                text-xl
+                font-black
+                text-[#111111]
+                break-all
+              ">
+                {submittedAccessCode || savedAccessCode || "Не создан"}
+              </p>
+            </div>
+
+            <div className="
+              bg-yellow-50
+              border
+              border-yellow-200
+              rounded-2xl
+              p-5
+              text-left
+            ">
+              <div className="flex items-center gap-2 mb-3">
+                <span className="
+                  w-3
+                  h-3
+                  rounded-full
+                  bg-yellow-400
+                " />
+
+                <p className="
+                  text-xs
+                  uppercase
+                  tracking-[0.2em]
+                  text-yellow-700
+                  font-semibold
+                ">
+                  Статус
+                </p>
+              </div>
+
+              <p className="
+                text-xl
+                font-black
+                text-yellow-800
+              ">
+                На рассмотрении
+              </p>
+            </div>
+          </div>
+
+          <button
+            onClick={() => {
+              window.location.href = "/";
+            }}
+            className="
+              w-full
+              bg-[#111111]
+              text-white
+              py-4
+              rounded-xl
+              font-semibold
+            "
+          >
+            Вернуться в главное меню
+          </button>
         </div>
+      </main>
+    );
+  }
 
-        <h1 className="text-5xl font-bold mb-6 text-[#111111]">
-          ЗАЯВКА ОТПРАВЛЕНА
-        </h1>
-
-        <p className="text-lg text-[#111111] mb-4">
-          Ваше заявление принято Администрацией Президента Ничегонии.
-        </p>
-
-        <p className="text-lg text-[#111111] mb-8">
-          Ожидайте решения по вашему запросу.
-        </p>
-
+  if (testCompleted) {
+    return (
+      <main className="min-h-screen bg-[#F7F6F3] flex items-center justify-center px-6">
         <div className="
-  grid
-  grid-cols-1
-  sm:grid-cols-3
-  gap-4
-  mb-8
-">
-
-  <div className="
-    bg-[#F7F6F3]
-    border
-    border-gray-200
-    rounded-2xl
-    p-5
-    text-left
-  ">
-    <p className="
-      text-xs
-      uppercase
-      tracking-[0.2em]
-      text-gray-500
-      font-semibold
-      mb-3
-    ">
-      Номер заявки
-    </p>
-
-    <p className="
-      text-xl
-      font-black
-      text-[#111111]
-      break-all
-    ">
-      {submittedApplicationNumber || savedApplicationNumber || "Не создан"}
-    </p>
-  </div>
-
-  <div className="
-    bg-[#F7F6F3]
-    border
-    border-gray-200
-    rounded-2xl
-    p-5
-    text-left
-  ">
-    <p className="
-      text-xs
-      uppercase
-      tracking-[0.2em]
-      text-gray-500
-      font-semibold
-      mb-3
-    ">
-      Код доступа
-    </p>
-
-    <p className="
-      text-xl
-      font-black
-      text-[#111111]
-      break-all
-    ">
-      {submittedAccessCode || savedAccessCode || "Не создан"}
-    </p>
-  </div>
-
-  <div className="
-    bg-yellow-50
-    border
-    border-yellow-200
-    rounded-2xl
-    p-5
-    text-left
-  ">
-    <div className="flex items-center gap-2 mb-3">
-      <span className="
-        w-3
-        h-3
-        rounded-full
-        bg-yellow-400
-      " />
-
-      <p className="
-        text-xs
-        uppercase
-        tracking-[0.2em]
-        text-yellow-700
-        font-semibold
-      ">
-        Статус
-      </p>
-    </div>
-
-    <p className="
-      text-xl
-      font-black
-      text-yellow-800
-    ">
-      На рассмотрении
-    </p>
-  </div>
-
-</div>
-
-        <button
-          onClick={() => {
-            window.location.href = "/";
-          }}
-          className="
-            w-full
+          bg-white
+          rounded-3xl
+          shadow-2xl
+          p-12
+          max-w-2xl
+          w-full
+          text-center
+          border
+          text-[#111111]
+        ">
+          <div className="
+            w-24
+            h-24
+            mx-auto
+            mb-8
+            rounded-full
             bg-[#111111]
             text-white
-            py-4
-            rounded-xl
-            font-semibold
-          "
-        >
-          Вернуться в главное меню
-        </button>
+            flex
+            items-center
+            justify-center
+            text-5xl
+          ">
+            📝
+          </div>
 
-      </div>
-    </main>
-  );
-}
+          <h1 className="text-5xl font-black mb-6 text-[#111111]">
+            РЕЗУЛЬТАТ ГОТОВ
+          </h1>
 
-if (started) {
-  return (
-    <main className="min-h-screen bg-[#F7F6F3] flex items-center justify-center px-6">
+          <p className="text-lg text-[#111111] mb-8">
+            Экзамен завершён. Осталось отправить результат в Администрацию Ничегонии.
+          </p>
 
-      <div className="bg-white rounded-2xl shadow-xl p-10 max-w-3xl w-full text-[#111111]">
+          <div className="
+            bg-[#F7F6F3]
+            border
+            border-gray-200
+            rounded-2xl
+            p-6
+            text-left
+            mb-8
+          ">
+            <p className="text-gray-500 text-sm mb-1">
+              ФИО
+            </p>
+            <p className="text-2xl font-black mb-5">
+              {fullName}
+            </p>
 
-        <p className="text-sm mb-4 text-[#111111] font-semibold">
-  {secretQuestion
-    ? "Секретный вопрос"
-    : `Вопрос ${currentQuestion + 1} из 9`}
-</p>
+            <p className="text-gray-500 text-sm mb-1">
+              Страна
+            </p>
+            <p className="text-2xl font-black mb-5">
+              {country}
+            </p>
 
-        <div className="w-full bg-gray-200 h-3 rounded-full mb-8">
-          <div
-            className="bg-[#111111] h-3 rounded-full"
-            style={{
-              width: `${((currentQuestion + 1) / 9) * 100}%`
-            }}
-          />
+            <p className="text-gray-500 text-sm mb-1">
+              Количество ответов
+            </p>
+            <p className="text-2xl font-black">
+              {completedAnswers.length || userAnswers.length}
+            </p>
+          </div>
+
+          <button
+            onClick={submitApplication}
+            disabled={isSubmitting}
+            className="
+              w-full
+              bg-[#111111]
+              text-white
+              py-4
+              rounded-xl
+              font-black
+              hover:opacity-90
+              transition
+              disabled:opacity-50
+              disabled:cursor-not-allowed
+            "
+          >
+            {isSubmitting ? "Отправляем..." : "Отправить результат"}
+          </button>
+
+          <p className="text-sm text-gray-500 mt-4">
+            После нажатия заявка отправится только один раз.
+          </p>
         </div>
-
-        <h2 className="text-3xl font-bold mb-8 text-[#111111]">
-          {question.question}
-        </h2>
-
-        <div className="space-y-4">
-
-          {shuffledAnswers.map((answer) => (
-            <button
-              key={answer}
-              onClick={async () => {
-                const updatedAnswers = [
-  ...userAnswers,
-  {
-    question: question.question,
-    answer: answer
-  }
-];
-
-setUserAnswers(updatedAnswers);
-
-                if (
-                  currentQuestion === 8 &&
-                  answer === "Нет"
-                ) {
-                  window.open(
-                    "https://youtube.com/@welqwshow",
-                    "_blank"
-                  );
-                  return;
-                }
-
-if (currentQuestion === 8) {
-  const formData = new FormData();
-
-  formData.append("fullName", fullName);
-  formData.append("age", age);
-  formData.append("country", country);
-  formData.append("reason", reason);
-  formData.append("answers", JSON.stringify(updatedAnswers));
-
-  if (photoFile) {
-    formData.append("photo", photoFile);
+      </main>
+    );
   }
 
-  const response = await fetch("/api/applications/submit", {
-    method: "POST",
-    body: formData
-  });
+  if (started) {
+    return (
+      <main className="min-h-screen bg-[#F7F6F3] flex items-center justify-center px-6">
+        <div className="bg-white rounded-2xl shadow-xl p-10 max-w-3xl w-full text-[#111111]">
+          <p className="text-sm mb-4 text-[#111111] font-semibold">
+            {secretQuestion
+              ? "Секретный вопрос"
+              : `Вопрос ${currentQuestion + 1} из 9`}
+          </p>
 
-  const result = await response.json();
-
-  if (!response.ok) {
-    console.log("SUBMIT APPLICATION ERROR:", result);
-    alert(result.error || "Не удалось отправить заявку.");
-    return;
-  }
-
-  const applicationNumber = result.applicationNumber;
-  const accessCode = result.accessCode;
-
-  localStorage.setItem("application_number", applicationNumber);
-  localStorage.setItem("access_code", accessCode);
-
-  setSubmittedApplicationNumber(applicationNumber);
-  setSubmittedAccessCode(accessCode);
-
-  localStorage.removeItem("nichogonia-test");
-  setSubmitted(true);
-  return;
-}
-
-                if (secretQuestion) {
-  setSecretQuestion(null);
-  setSecretUsed(false);
-  setCurrentQuestion(currentQuestion + 1);
-  return;
-}
-
-if (
-  !secretUsed &&
-  currentQuestion < 8 &&
-  Math.random() < 0.1
-) {
-  const randomSecret =
-    secretQuestions[
-      Math.floor(
-        Math.random() * secretQuestions.length
-      )
-    ];
-
-  setSecretQuestion(randomSecret);
-  setSecretUsed(true);
-
-  return;
-}
-
-setCurrentQuestion(
-  currentQuestion + 1
-);
+          <div className="w-full bg-gray-200 h-3 rounded-full mb-8">
+            <div
+              className="bg-[#111111] h-3 rounded-full"
+              style={{
+                width: `${((currentQuestion + 1) / 9) * 100}%`
               }}
-              className="
-  w-full
-  text-left
-  border-2
-  border-gray-300
-  rounded-xl
-  p-5
-  bg-white
-  text-[#111111]
-  font-medium
-  hover:bg-gray-100
-  transition
-"
-            >
-              {answer}
-            </button>
-          ))}
+            />
+          </div>
 
+          <h2 className="text-3xl font-bold mb-8 text-[#111111]">
+            {question.question}
+          </h2>
+
+          <div className="space-y-4">
+            {shuffledAnswers.map((answer) => (
+              <button
+                key={answer}
+                onClick={() => {
+                  const updatedAnswers = [
+                    ...userAnswers,
+                    {
+                      question: question.question,
+                      answer: answer
+                    }
+                  ];
+
+                  setUserAnswers(updatedAnswers);
+
+                  if (
+                    currentQuestion === 8 &&
+                    answer === "Нет"
+                  ) {
+                    window.open(
+                      "https://youtube.com/@welqwshow",
+                      "_blank"
+                    );
+                    return;
+                  }
+
+                  if (currentQuestion === 8) {
+                    setCompletedAnswers(updatedAnswers);
+                    setTestCompleted(true);
+                    return;
+                  }
+
+                  if (secretQuestion) {
+                    setSecretQuestion(null);
+                    setSecretUsed(false);
+                    setCurrentQuestion(currentQuestion + 1);
+                    return;
+                  }
+
+                  if (
+                    !secretUsed &&
+                    currentQuestion < 8 &&
+                    Math.random() < 0.1
+                  ) {
+                    const randomSecret =
+                      secretQuestions[
+                        Math.floor(
+                          Math.random() * secretQuestions.length
+                        )
+                      ];
+
+                    setSecretQuestion(randomSecret);
+                    setSecretUsed(true);
+
+                    return;
+                  }
+
+                  setCurrentQuestion(
+                    currentQuestion + 1
+                  );
+                }}
+                className="
+                  w-full
+                  text-left
+                  border-2
+                  border-gray-300
+                  rounded-xl
+                  p-5
+                  bg-white
+                  text-[#111111]
+                  font-medium
+                  hover:bg-gray-100
+                  transition
+                "
+              >
+                {answer}
+              </button>
+            ))}
+          </div>
         </div>
-
-      </div>
-
-    </main>
-  );
-}
+      </main>
+    );
+  }
 
   return (
     <main className="min-h-screen bg-[#F7F6F3] flex items-center justify-center px-6">
-
       <div className="bg-white rounded-2xl shadow-xl p-12 max-w-2xl text-center">
-
         <h1 className="text-4xl font-bold text-[#111111] mb-6">
           Экзамен на гражданство Ничегонии
         </h1>
@@ -520,191 +650,187 @@ setCurrentQuestion(
         </p>
 
         <div className="space-y-5 text-left">
+          <div>
+            <label className="block mb-2 font-semibold text-black">
+              ФИО
+            </label>
 
-  <div>
-    <label className="block mb-2 font-semibold text-black">
-      ФИО
-    </label>
+            <input
+              type="text"
+              value={fullName}
+              onChange={(e) => setFullName(e.target.value)}
+              className={`
+                w-full
+                border-2
+                rounded-lg
+                p-3
+                bg-white
+                text-black
+                ${
+                  showError && !fullName.trim()
+                    ? "border-red-500"
+                    : "border-gray-300"
+                }
+              `}
+            />
+          </div>
 
-    <input
-  type="text"
-  value={fullName}
-  onChange={(e) => setFullName(e.target.value)}
-  className={`
-  w-full
-  border-2
-  rounded-lg
-  p-3
-  bg-white
-  text-black
-  ${
-    showError && !fullName.trim()
-      ? "border-red-500"
-      : "border-gray-300"
-  }
-`}
-/>
-  </div>
+          <div>
+            <label className="block mb-2 font-semibold text-black">
+              Возраст
+            </label>
 
-  <div>
-    <label className="block mb-2 font-semibold text-black">
-      Возраст
-    </label>
+            <input
+              type="number"
+              value={age}
+              onChange={(e) => setAge(e.target.value)}
+              className={`
+                w-full
+                border-2
+                rounded-lg
+                p-3
+                bg-white
+                text-black
+                ${
+                  showError && !age.trim()
+                    ? "border-red-500"
+                    : "border-gray-300"
+                }
+              `}
+            />
+          </div>
 
-    <input
-  type="number"
-  value={age}
-  onChange={(e) => setAge(e.target.value)}
-className={`
-  w-full
-  border-2
-  rounded-lg
-  p-3
-  bg-white
-  text-black
-  ${
-    showError && !age.trim()
-      ? "border-red-500"
-      : "border-gray-300"
-  }
-`}
-/>
-  </div>
+          <div>
+            <label className="block mb-2 font-semibold text-black">
+              Страна проживания
+            </label>
 
-  <div>
-    <label className="block mb-2 font-semibold text-black">
-      Страна проживания
-    </label>
+            <input
+              type="text"
+              value={country}
+              onChange={(e) => setCountry(e.target.value)}
+              className={`
+                w-full
+                border-2
+                rounded-lg
+                p-3
+                bg-white
+                text-black
+                ${
+                  showError && !country.trim()
+                    ? "border-red-500"
+                    : "border-gray-300"
+                }
+              `}
+            />
+          </div>
 
-    <input
-  type="text"
-  value={country}
-  onChange={(e) => setCountry(e.target.value)}
-className={`
-  w-full
-  border-2
-  rounded-lg
-  p-3
-  bg-white
-  text-black
-  ${
-    showError && !country.trim()
-      ? "border-red-500"
-      : "border-gray-300"
-  }
-`}
-/>
-  </div>
+          <div>
+            <label className="block mb-2 font-semibold text-black">
+              Почему вы хотите стать гражданином Ничегонии?
+            </label>
 
-  <div>
-    <label className="block mb-2 font-semibold text-black">
-      Почему вы хотите стать гражданином Ничегонии?
-    </label>
+            <textarea
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              rows={4}
+              className={`
+                w-full
+                border-2
+                rounded-lg
+                p-3
+                bg-white
+                text-black
+                ${
+                  showError && !reason.trim()
+                    ? "border-red-500"
+                    : "border-gray-300"
+                }
+              `}
+            />
+          </div>
 
-    <textarea
-  value={reason}
-  onChange={(e) => setReason(e.target.value)}
-  rows={4}
-className={`
-  w-full
-  border-2
-  rounded-lg
-  p-3
-  bg-white
-  text-black
-  ${
-    showError && !reason.trim()
-      ? "border-red-500"
-      : "border-gray-300"
-  }
-`}
-/>
-  </div>
+          <div>
+            <label className="block mb-2 font-semibold text-black">
+              Фото для паспорта
+            </label>
 
-  <div>
-  <label className="block mb-2 font-semibold text-black">
-    Фото для паспорта
-  </label>
+            <input
+              type="file"
+              accept="image/*"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
 
-  <input
-    type="file"
-    accept="image/*"
-    onChange={(e) => {
-      const file = e.target.files?.[0];
+                if (file) {
+                  setPhotoFile(file);
+                }
+              }}
+              className="
+                w-full
+                border-2
+                border-gray-300
+                rounded-lg
+                p-3
+                bg-white
+                text-black
+              "
+            />
 
-      if (file) {
-        setPhotoFile(file);
-      }
-    }}
-    className="
-      w-full
-      border-2
-      border-gray-300
-      rounded-lg
-      p-3
-      bg-white
-      text-black
-    "
-  />
+            {photoFile && (
+              <p className="text-sm text-green-700 font-semibold mt-2">
+                Фото выбрано: {photoFile.name}
+              </p>
+            )}
 
-  {photoFile && (
-    <p className="text-sm text-green-700 font-semibold mt-2">
-      Фото выбрано: {photoFile.name}
-    </p>
-  )}
+            <p className="text-sm text-gray-500 mt-2">
+              Это фото будет отображаться в паспорте гражданина Ничегонии.
+            </p>
+          </div>
 
-  <p className="text-sm text-gray-500 mt-2">
-    Это фото будет отображаться в паспорте гражданина Ничегонии.
-  </p>
-</div>
+          {showError && (
+            <div className="
+              bg-red-50
+              border
+              border-red-300
+              text-red-700
+              rounded-xl
+              p-4
+              text-center
+              font-medium
+            ">
+              Пожалуйста, заполните все поля анкеты и выберите фото
+            </div>
+          )}
 
-{showError && (
-  <div className="
-    bg-red-50
-    border
-    border-red-300
-    text-red-700
-    rounded-xl
-    p-4
-    text-center
-    font-medium
-  ">
-    Пожалуйста, заполните все поля анкеты и выберите фото
-  </div>
-)}
+          <button
+            onClick={() => {
+              if (
+                !fullName.trim() ||
+                !age ||
+                !country.trim() ||
+                !reason.trim() ||
+                !photoFile
+              ) {
+                setShowError(true);
+                return;
+              }
 
-  <button
-    onClick={async () => {
-
-if (
-  !fullName.trim() ||
-  !age ||
-  !country.trim() ||
-  !reason.trim() ||
-  !photoFile
-){
-  setShowError(true);
-  return;
-}
-
-      setStarted(true);
-    }}
-    className="
-      w-full
-      bg-[#111111]
-      text-white
-      py-4
-      rounded-lg
-      font-semibold
-    "
-  >
-    ПРОДОЛЖИТЬ
-  </button>
-
-</div>
-
+              setShowError(false);
+              setStarted(true);
+            }}
+            className="
+              w-full
+              bg-[#111111]
+              text-white
+              py-4
+              rounded-lg
+              font-semibold
+            "
+          >
+            ПРОДОЛЖИТЬ
+          </button>
+        </div>
       </div>
-
     </main>
   );
 }
