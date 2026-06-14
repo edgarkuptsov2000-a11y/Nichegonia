@@ -156,24 +156,25 @@ export default function CabinetPage() {
   if (checkingSavedLogin) {
     return (
       <main className="
-        min-h-screen
+        min-h-[100dvh]
         bg-[#F7F6F3]
         flex
         items-center
         justify-center
-        px-6
+        px-4 sm:px-6
         text-[#111111]
       ">
         <div className="
           bg-white
           rounded-3xl
           shadow-2xl
-          p-10
+          p-5
+          sm:p-10
           text-center
           border
           border-gray-200
         ">
-          <p className="text-2xl font-black text-[#111111]">
+          <p className="text-xl sm:text-2xl font-black text-[#111111]">
             Загрузка личного кабинета...
           </p>
         </div>
@@ -203,13 +204,13 @@ export default function CabinetPage() {
 
     return (
       <main className="
-        min-h-screen
+        min-h-[100dvh]
         bg-[#F7F6F3]
         flex
         items-center
         justify-center
-        px-6
-        py-10
+        px-4 sm:px-6
+        py-6 sm:py-10
         text-[#111111]
       ">
         <div className="
@@ -218,12 +219,13 @@ export default function CabinetPage() {
           w-full
           rounded-3xl
           shadow-2xl
-          p-10
+          p-5
+          sm:p-10
           border
           border-gray-200
         ">
           <h1 className="
-            text-4xl
+            text-3xl sm:text-4xl
             font-black
             mb-8
             text-center
@@ -232,11 +234,12 @@ export default function CabinetPage() {
             Личный кабинет Ничегонии
           </h1>
 
-          <div className="space-y-4 text-lg text-[#111111]">
+          <div className="space-y-4 text-base sm:text-lg text-[#111111]">
             <div className="
               bg-[#F7F6F3]
               rounded-2xl
-              p-5
+              p-4
+            sm:p-5
               border
               border-gray-200
             ">
@@ -252,7 +255,8 @@ export default function CabinetPage() {
             <div className="
               bg-[#F7F6F3]
               rounded-2xl
-              p-5
+              p-4
+            sm:p-5
               border
               border-gray-200
             ">
@@ -268,7 +272,8 @@ export default function CabinetPage() {
             <div className="
               bg-[#F7F6F3]
               rounded-2xl
-              p-5
+              p-4
+            sm:p-5
               border
               border-gray-200
             ">
@@ -284,7 +289,8 @@ export default function CabinetPage() {
             <div className="
               bg-yellow-50
               rounded-2xl
-              p-5
+              p-4
+            sm:p-5
               border
               border-yellow-200
             ">
@@ -363,22 +369,28 @@ export default function CabinetPage() {
               relative
               w-full
               max-w-6xl
-              max-h-[92vh]
+              max-h-[92dvh]
               overflow-y-auto
             ">
               <div className="
-                absolute
-                right-4
-                top-4
-                z-10
+                sticky
+                top-0
+                z-20
+                mb-3
                 flex
-                gap-3
+                justify-end
+                gap-2
+                sm:gap-3
               ">
                 <button
                   onClick={downloadPassportImage}
                   className="
-                    h-12
-                    px-5
+                    h-10
+                    sm:h-12
+                    px-4
+                    sm:px-5
+                    text-sm
+                    sm:text-base
                     rounded-full
                     bg-white
                     text-[#111111]
@@ -394,8 +406,12 @@ export default function CabinetPage() {
                 <button
                   onClick={downloadPassportPdf}
                   className="
-                    h-12
-                    px-5
+                    h-10
+                    sm:h-12
+                    px-4
+                    sm:px-5
+                    text-sm
+                    sm:text-base
                     rounded-full
                     bg-white
                     text-[#111111]
@@ -411,13 +427,15 @@ export default function CabinetPage() {
                 <button
                   onClick={() => setShowPassport(false)}
                   className="
-                    w-12
-                    h-12
+                    w-10
+                    h-10
+                    sm:w-12
+                    sm:h-12
                     rounded-full
                     bg-white
                     text-[#111111]
                     font-black
-                    text-2xl
+                    text-xl sm:text-2xl
                     shadow-lg
                     hover:bg-gray-100
                     transition
@@ -431,7 +449,8 @@ export default function CabinetPage() {
                 ref={passportRef}
                 className="
                   overflow-hidden
-                  rounded-[32px]
+                  rounded-2xl
+                  sm:rounded-[32px]
                   border-2
                   border-[#C9A646]
                   bg-[#EFE8D8]
@@ -443,12 +462,15 @@ export default function CabinetPage() {
                   grid
                   grid-cols-1
                   lg:grid-cols-[0.8fr_1.2fr]
-                  min-h-[620px]
+                  min-h-0
+                  lg:min-h-[620px]
                 ">
                   <div className="
                     bg-[#111111]
                     text-[#C9A646]
-                    p-10
+                    p-4
+            sm:p-5
+          sm:p-10
                     flex
                     flex-col
                     items-center
@@ -468,7 +490,7 @@ export default function CabinetPage() {
                     </p>
 
                     <h2 className="
-                      text-5xl
+                      text-3xl sm:text-5xl
                       font-black
                       tracking-[0.2em]
                       mb-10
@@ -477,15 +499,17 @@ export default function CabinetPage() {
                     </h2>
 
                     <div className="
-                      w-44
-                      h-44
+                      w-28
+                      h-28
+                      sm:w-44
+                      sm:h-44
                       rounded-full
                       border-4
                       border-[#C9A646]
                       flex
                       items-center
                       justify-center
-                      text-7xl
+                      text-5xl sm:text-7xl
                       font-black
                       mb-10
                       shadow-2xl
@@ -494,7 +518,7 @@ export default function CabinetPage() {
                     </div>
 
                     <p className="
-                      text-5xl
+                      text-3xl sm:text-5xl
                       font-black
                       tracking-[0.2em]
                       mb-4
@@ -503,7 +527,7 @@ export default function CabinetPage() {
                     </p>
 
                     <p className="
-                      text-lg
+                      text-base sm:text-lg
                       tracking-[0.25em]
                       uppercase
                       text-[#F5D77A]
@@ -516,7 +540,7 @@ export default function CabinetPage() {
                       border
                       border-[#C9A646]
                       rounded-full
-                      px-6
+                      px-4 sm:px-6
                       py-2
                       text-sm
                       tracking-[0.2em]
@@ -527,7 +551,9 @@ export default function CabinetPage() {
 
                   <div className="
                     bg-[#F8F3E8]
-                    p-10
+                    p-4
+            sm:p-5
+          sm:p-10
                     relative
                     overflow-hidden
                   ">
@@ -535,7 +561,9 @@ export default function CabinetPage() {
                       absolute
                       right-10
                       top-10
-                      text-[220px]
+                      hidden
+                      sm:block
+                      sm:text-[220px]
                       leading-none
                       font-black
                       text-[#111111]
@@ -563,7 +591,7 @@ export default function CabinetPage() {
                       </p>
 
                       <h3 className="
-                        text-4xl
+                        text-3xl sm:text-4xl
                         font-black
                         text-[#111111]
                       ">
@@ -589,8 +617,10 @@ export default function CabinetPage() {
                             src={photoUrl}
                             alt="Фото гражданина"
                             className="
-                              w-[170px]
-                              h-[210px]
+                              w-[140px]
+                              h-[175px]
+                              sm:w-[170px]
+                              sm:h-[210px]
                               rounded-2xl
                               object-cover
                               border
@@ -601,8 +631,10 @@ export default function CabinetPage() {
                           />
                         ) : (
                           <div className="
-                            w-[170px]
-                            h-[210px]
+                            w-[140px]
+                            h-[175px]
+                            sm:w-[170px]
+                            sm:h-[210px]
                             rounded-2xl
                             bg-[#E8DFCF]
                             border
@@ -610,7 +642,7 @@ export default function CabinetPage() {
                             flex
                             items-center
                             justify-center
-                            text-5xl
+                            text-3xl sm:text-5xl
                             font-black
                             text-[#111111]
                             shadow-lg
@@ -626,7 +658,8 @@ export default function CabinetPage() {
                         rounded-2xl
                         border
                         border-[#D8C8A8]
-                        p-5
+                        p-4
+            sm:p-5
                       ">
                         <p className="
                           text-xs
@@ -639,7 +672,7 @@ export default function CabinetPage() {
                           Данные владельца
                         </p>
 
-                        <p className="text-lg font-semibold text-[#111111]">
+                        <p className="text-base sm:text-lg font-semibold text-[#111111]">
                           Настоящий документ подтверждает статус гражданина
                           Федеральной Республики Ничегония.
                         </p>
@@ -657,7 +690,7 @@ export default function CabinetPage() {
                         <p className="text-xs uppercase text-gray-500 font-bold mb-1">
                           ФИО
                         </p>
-                        <p className="text-2xl font-black text-[#111111]">
+                        <p className="text-xl sm:text-2xl font-black text-[#111111]">
                           {application.full_name}
                         </p>
                       </div>
@@ -666,7 +699,7 @@ export default function CabinetPage() {
                         <p className="text-xs uppercase text-gray-500 font-bold mb-1">
                           Гражданство
                         </p>
-                        <p className="text-2xl font-black text-[#111111]">
+                        <p className="text-xl sm:text-2xl font-black text-[#111111]">
                           Ничегошка
                         </p>
                       </div>
@@ -675,7 +708,7 @@ export default function CabinetPage() {
                         <p className="text-xs uppercase text-gray-500 font-bold mb-1">
                           Номер паспорта
                         </p>
-                        <p className="text-2xl font-black text-[#111111]">
+                        <p className="text-xl sm:text-2xl font-black text-[#111111]">
                           {passportNumber}
                         </p>
                       </div>
@@ -684,7 +717,7 @@ export default function CabinetPage() {
                         <p className="text-xs uppercase text-gray-500 font-bold mb-1">
                           Дата выдачи
                         </p>
-                        <p className="text-2xl font-black text-[#111111]">
+                        <p className="text-xl sm:text-2xl font-black text-[#111111]">
                           {issueDate}
                         </p>
                       </div>
@@ -693,7 +726,7 @@ export default function CabinetPage() {
                         <p className="text-xs uppercase text-gray-500 font-bold mb-1">
                           Страна проживания
                         </p>
-                        <p className="text-2xl font-black text-[#111111]">
+                        <p className="text-xl sm:text-2xl font-black text-[#111111]">
                           {application.country}
                         </p>
                       </div>
@@ -702,7 +735,7 @@ export default function CabinetPage() {
                         <p className="text-xs uppercase text-gray-500 font-bold mb-1">
                           Статус
                         </p>
-                        <p className="text-2xl font-black text-green-700">
+                        <p className="text-xl sm:text-2xl font-black text-green-700">
                           Активный ничегошка
                         </p>
                       </div>
@@ -722,7 +755,7 @@ export default function CabinetPage() {
                         <p className="text-xs uppercase text-gray-500 font-bold mb-2">
                           Орган выдачи
                         </p>
-                        <p className="text-lg font-black text-[#111111]">
+                        <p className="text-base sm:text-lg font-black text-[#111111]">
                           Администрация Президента Ничегонии
                         </p>
                       </div>
@@ -738,7 +771,7 @@ export default function CabinetPage() {
                           border-4
                           border-blue-700
                           text-blue-700
-                          px-6
+                          px-4 sm:px-6
                           py-3
                           rounded-md
                           font-black
@@ -758,8 +791,11 @@ export default function CabinetPage() {
   border-[#D8C8A8]
   p-5
   flex
-  items-center
-  gap-5
+  flex-col
+  sm:flex-row
+  sm:items-center
+  gap-4
+  sm:gap-5
 ">
   <div className="
     bg-white
@@ -789,7 +825,7 @@ export default function CabinetPage() {
       Проверка паспорта
     </p>
 
-    <p className="text-lg font-black text-[#111111]">
+    <p className="text-base sm:text-lg font-black text-[#111111]">
       Отсканируйте QR-код
     </p>
 
@@ -805,7 +841,8 @@ export default function CabinetPage() {
                       rounded-2xl
                       border
                       border-[#D8C8A8]
-                      p-6
+                      p-4
+            sm:p-6
                     ">
                       <p className="
                         text-sm
@@ -844,12 +881,12 @@ export default function CabinetPage() {
 
   return (
     <main className="
-      min-h-screen
+      min-h-[100dvh]
       bg-[#F7F6F3]
       flex
       items-center
       justify-center
-      px-6
+      px-4 sm:px-6
       text-[#111111]
     ">
       <div className="
@@ -858,12 +895,13 @@ export default function CabinetPage() {
         w-full
         rounded-3xl
         shadow-2xl
-        p-10
+        p-5
+        sm:p-10
         border
         border-gray-200
       ">
         <h1 className="
-          text-4xl
+          text-3xl sm:text-4xl
           font-black
           text-center
           mb-8

@@ -6,46 +6,53 @@ import Image from "next/image";
 export default function Home() {
   const [showConstitution, setShowConstitution] = useState(false);
   return (
-    <main className="min-h-screen bg-[#F7F6F3] text-[#111111]">
+    <main className="min-h-[100dvh] bg-[#F7F6F3] text-[#111111] overflow-x-hidden">
 
       {/* Главный экран */}
 
-      <section className="max-w-6xl mx-auto px-6 py-20 text-center">
+      <section className="max-w-6xl mx-auto px-4 sm:px-6 py-10 sm:py-20 text-center">
 
         <Image
           src="/coat-of-arms.png"
           alt="Герб Ничегонии"
           width={260}
           height={260}
-          className="mx-auto mb-10"
+          className="w-40 sm:w-[260px] h-auto mx-auto mb-8 sm:mb-10"
           priority
         />
 
-        <h1 className="text-5xl md:text-6xl font-bold tracking-wide leading-tight">
+        <h1 className="text-3xl sm:text-5xl md:text-6xl font-bold tracking-wide leading-tight">
           ФЕДЕРАЛЬНАЯ РЕСПУБЛИКА
           <br />
           НИЧЕГОНИЯ
         </h1>
 
-        <p className="mt-6 text-xl text-gray-700">
+        <p className="mt-5 sm:mt-6 text-base sm:text-xl text-gray-700">
           Официальный портал получения гражданства
         </p>
 
-        <p className="mt-8 text-2xl italic">
+        <p className="mt-6 sm:mt-8 text-xl sm:text-2xl italic">
           «Ничего. Но стабильно.»
         </p>
 
         <a
   href="/test"
   className="
-    inline-block
-    mt-10
+    inline-flex
+    w-full
+    sm:w-auto
+    justify-center
+    mt-8
+    sm:mt-10
     bg-[#111111]
     text-white
-    px-10
-    py-5
+    px-6
+    sm:px-10
+    py-4
+    sm:py-5
     rounded-lg
-    text-lg
+    text-base
+    sm:text-lg
     font-semibold
     hover:opacity-90
     transition
@@ -59,14 +66,19 @@ export default function Home() {
   <a
     href="/cabinet"
     className="
-      inline-block
+      inline-flex
+      w-full
+      sm:w-auto
+      justify-center
       border-2
       border-[#111111]
       text-[#111111]
-      px-10
+      px-6
+      sm:px-10
       py-4
       rounded-lg
-      text-lg
+      text-base
+      sm:text-lg
       font-semibold
       hover:bg-[#111111]
       hover:text-white
@@ -86,7 +98,7 @@ export default function Home() {
 
       {/* Флаг */}
 
-      <section className="max-w-6xl mx-auto px-6 pb-20">
+      <section className="max-w-6xl mx-auto px-4 sm:px-6 pb-12 sm:pb-20">
 
         <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
 
@@ -98,9 +110,9 @@ export default function Home() {
             className="w-full"
           />
 
-          <div className="p-8">
+          <div className="p-5 sm:p-8">
 
-            <h2 className="text-3xl font-bold mb-4">
+            <h2 className="text-2xl sm:text-3xl font-bold mb-4">
               Государственный флаг Ничегонии
             </h2>
 
@@ -120,18 +132,18 @@ export default function Home() {
 
       {/* Информация о стране */}
 
-      <section className="max-w-6xl mx-auto px-6 pb-20">
+      <section className="max-w-6xl mx-auto px-4 sm:px-6 pb-12 sm:pb-20">
 
-        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
 
-          <div className="bg-white rounded-xl shadow p-6">
+          <div className="bg-white rounded-xl shadow p-5 sm:p-6">
             <h3 className="font-bold text-lg mb-2">
               Столица
             </h3>
             <p>Новая Ничегония</p>
           </div>
 
-          <div className="bg-white rounded-xl shadow p-6">
+          <div className="bg-white rounded-xl shadow p-5 sm:p-6">
             <h3 className="font-bold text-lg mb-2">
               Валюта
             </h3>
@@ -141,14 +153,14 @@ export default function Home() {
             </p>
           </div>
 
-          <div className="bg-white rounded-xl shadow p-6">
+          <div className="bg-white rounded-xl shadow p-5 sm:p-6">
             <h3 className="font-bold text-lg mb-2">
               Граждане
             </h3>
             <p>Ничегошки</p>
           </div>
 
-          <div className="bg-white rounded-xl shadow p-6">
+          <div className="bg-white rounded-xl shadow p-5 sm:p-6">
             <h3 className="font-bold text-lg mb-2">
               Государственный девиз
             </h3>
@@ -161,11 +173,11 @@ export default function Home() {
 
       {/* Конституция */}
 
-      <section className="max-w-4xl mx-auto px-6 pb-24">
+      <section className="max-w-4xl mx-auto px-4 sm:px-6 pb-16 sm:pb-24">
 
-        <div className="bg-white rounded-2xl shadow-lg p-10">
+        <div className="bg-white rounded-2xl shadow-lg p-5 sm:p-10">
 
-          <h2 className="text-4xl font-bold mb-10">
+          <h2 className="text-3xl sm:text-4xl font-bold mb-6 sm:mb-10">
             Конституция Ничегонии
           </h2>
 
@@ -220,10 +232,14 @@ export default function Home() {
           <button
   onClick={() => setShowConstitution(true)}
   className="
-    mt-10
+    w-full
+    sm:w-auto
+    mt-8
+    sm:mt-10
     border-2
     border-[#111111]
-    px-8
+    px-6
+    sm:px-8
     py-4
     rounded-lg
     hover:bg-[#111111]
@@ -255,18 +271,20 @@ export default function Home() {
       top-1/2
       -translate-x-1/2
       -translate-y-1/2
-      w-[95%]
+      w-[94%]
+      sm:w-[95%]
       max-w-4xl
-      h-[80vh]
+      h-[85dvh]
+      sm:h-[80vh]
       bg-white
       rounded-2xl
       shadow-2xl
       overflow-hidden
     ">
 
-      <div className="flex justify-between items-center border-b p-6">
+      <div className="flex justify-between items-center gap-4 border-b p-4 sm:p-6">
 
-        <h2 className="text-3xl font-bold">
+        <h2 className="text-xl sm:text-3xl font-bold">
           Конституция Ничегонии
         </h2>
 
@@ -279,7 +297,7 @@ export default function Home() {
 
       </div>
 
-      <div className="overflow-y-auto h-[calc(80vh-90px)] p-8 space-y-5">
+      <div className="overflow-y-auto h-[calc(85dvh-76px)] sm:h-[calc(80vh-90px)] p-4 sm:p-8 space-y-5 text-sm sm:text-base leading-relaxed">
 
         <p><strong>Статья 1.</strong> Федеральная Республика Ничегония является независимым, суверенным и мемным государством.</p>
 

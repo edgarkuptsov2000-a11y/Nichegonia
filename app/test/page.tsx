@@ -230,41 +230,46 @@ export default function TestPage() {
         : "";
 
     return (
-      <main className="min-h-screen bg-[#F7F6F3] flex items-center justify-center px-6">
+      <main className="min-h-[100dvh] bg-[#F7F6F3] flex items-center justify-center px-4 sm:px-6 py-6 sm:py-10">
         <div className="
           bg-white
           rounded-3xl
           shadow-2xl
-          p-12
+          p-4
+          sm:p-5
+          sm:p-12
           max-w-2xl
           w-full
           text-center
           border
         ">
           <div className="
-            w-24
-            h-24
+            w-16
+            h-16
+            sm:w-24
+            sm:h-24
             mx-auto
-            mb-8
+            mb-5
+            sm:mb-8
             rounded-full
             bg-green-100
             flex
             items-center
             justify-center
-            text-5xl
+            text-3xl sm:text-5xl
           ">
             ✓
           </div>
 
-          <h1 className="text-5xl font-bold mb-6 text-[#111111]">
+          <h1 className="text-3xl sm:text-5xl font-bold mb-6 text-[#111111]">
             ЗАЯВКА ОТПРАВЛЕНА
           </h1>
 
-          <p className="text-lg text-[#111111] mb-4">
+          <p className="text-base sm:text-lg text-[#111111] mb-4">
             Ваше заявление принято Администрацией Президента Ничегонии.
           </p>
 
-          <p className="text-lg text-[#111111] mb-8">
+          <p className="text-base sm:text-lg text-[#111111] mb-8">
             Ожидайте решения по вашему запросу.
           </p>
 
@@ -273,14 +278,16 @@ export default function TestPage() {
             grid-cols-1
             sm:grid-cols-3
             gap-4
-            mb-8
+            mb-5
+            sm:mb-8
           ">
             <div className="
               bg-[#F7F6F3]
               border
               border-gray-200
               rounded-2xl
-              p-5
+              p-4
+          sm:p-5
               text-left
             ">
               <p className="
@@ -295,7 +302,7 @@ export default function TestPage() {
               </p>
 
               <p className="
-                text-xl
+                text-lg sm:text-xl
                 font-black
                 text-[#111111]
                 break-all
@@ -309,7 +316,8 @@ export default function TestPage() {
               border
               border-gray-200
               rounded-2xl
-              p-5
+              p-4
+          sm:p-5
               text-left
             ">
               <p className="
@@ -324,7 +332,7 @@ export default function TestPage() {
               </p>
 
               <p className="
-                text-xl
+                text-lg sm:text-xl
                 font-black
                 text-[#111111]
                 break-all
@@ -338,7 +346,8 @@ export default function TestPage() {
               border
               border-yellow-200
               rounded-2xl
-              p-5
+              p-4
+          sm:p-5
               text-left
             ">
               <div className="flex items-center gap-2 mb-3">
@@ -361,7 +370,7 @@ export default function TestPage() {
               </div>
 
               <p className="
-                text-xl
+                text-lg sm:text-xl
                 font-black
                 text-yellow-800
               ">
@@ -378,7 +387,8 @@ export default function TestPage() {
               w-full
               bg-[#111111]
               text-white
-              py-4
+              py-3
+            sm:py-4
               rounded-xl
               font-semibold
             "
@@ -392,12 +402,14 @@ export default function TestPage() {
 
   if (testCompleted) {
     return (
-      <main className="min-h-screen bg-[#F7F6F3] flex items-center justify-center px-6">
+      <main className="min-h-[100dvh] bg-[#F7F6F3] flex items-center justify-center px-4 sm:px-6 py-6 sm:py-10">
         <div className="
           bg-white
           rounded-3xl
           shadow-2xl
-          p-12
+          p-4
+          sm:p-5
+          sm:p-12
           max-w-2xl
           w-full
           text-center
@@ -405,26 +417,29 @@ export default function TestPage() {
           text-[#111111]
         ">
           <div className="
-            w-24
-            h-24
+            w-16
+            h-16
+            sm:w-24
+            sm:h-24
             mx-auto
-            mb-8
+            mb-5
+            sm:mb-8
             rounded-full
             bg-[#111111]
             text-white
             flex
             items-center
             justify-center
-            text-5xl
+            text-3xl sm:text-5xl
           ">
             📝
           </div>
 
-          <h1 className="text-5xl font-black mb-6 text-[#111111]">
+          <h1 className="text-3xl sm:text-5xl font-black mb-6 text-[#111111]">
             РЕЗУЛЬТАТ ГОТОВ
           </h1>
 
-          <p className="text-lg text-[#111111] mb-8">
+          <p className="text-base sm:text-lg text-[#111111] mb-8">
             Экзамен завершён. Осталось отправить результат в Администрацию Ничегонии.
           </p>
 
@@ -433,28 +448,30 @@ export default function TestPage() {
             border
             border-gray-200
             rounded-2xl
-            p-6
+            p-4
+          sm:p-6
             text-left
-            mb-8
+            mb-5
+            sm:mb-8
           ">
             <p className="text-gray-500 text-sm mb-1">
               ФИО
             </p>
-            <p className="text-2xl font-black mb-5">
+            <p className="text-xl sm:text-2xl font-black mb-5">
               {fullName}
             </p>
 
             <p className="text-gray-500 text-sm mb-1">
               Страна
             </p>
-            <p className="text-2xl font-black mb-5">
+            <p className="text-xl sm:text-2xl font-black mb-5">
               {country}
             </p>
 
             <p className="text-gray-500 text-sm mb-1">
               Количество ответов
             </p>
-            <p className="text-2xl font-black">
+            <p className="text-xl sm:text-2xl font-black">
               {completedAnswers.length || userAnswers.length}
             </p>
           </div>
@@ -466,7 +483,8 @@ export default function TestPage() {
               w-full
               bg-[#111111]
               text-white
-              py-4
+              py-3
+            sm:py-4
               rounded-xl
               font-black
               hover:opacity-90
@@ -488,8 +506,8 @@ export default function TestPage() {
 
   if (started) {
     return (
-      <main className="min-h-screen bg-[#F7F6F3] flex items-center justify-center px-6">
-        <div className="bg-white rounded-2xl shadow-xl p-10 max-w-3xl w-full text-[#111111]">
+      <main className="min-h-[100dvh] bg-[#F7F6F3] flex items-center justify-center px-4 sm:px-6 py-6 sm:py-10">
+        <div className="bg-white rounded-2xl shadow-xl p-5 sm:p-10 max-w-3xl w-full text-[#111111]">
           <p className="text-sm mb-4 text-[#111111] font-semibold">
             {secretQuestion
               ? "Секретный вопрос"
@@ -505,7 +523,7 @@ export default function TestPage() {
             />
           </div>
 
-          <h2 className="text-3xl font-bold mb-8 text-[#111111]">
+          <h2 className="text-2xl sm:text-3xl font-bold mb-8 text-[#111111]">
             {question.question}
           </h2>
 
@@ -576,7 +594,8 @@ export default function TestPage() {
                   border-2
                   border-gray-300
                   rounded-xl
-                  p-5
+                  p-4
+          sm:p-5
                   bg-white
                   text-[#111111]
                   font-medium
@@ -594,22 +613,22 @@ export default function TestPage() {
   }
 
   return (
-    <main className="min-h-screen bg-[#F7F6F3] flex items-center justify-center px-6">
-      <div className="bg-white rounded-2xl shadow-xl p-12 max-w-2xl text-center">
-        <h1 className="text-4xl font-bold text-[#111111] mb-6">
+    <main className="min-h-[100dvh] bg-[#F7F6F3] flex items-center justify-center px-4 sm:px-6 py-6 sm:py-10">
+      <div className="bg-white rounded-2xl shadow-xl p-5 sm:p-12 max-w-2xl text-center">
+        <h1 className="text-3xl sm:text-4xl font-bold text-[#111111] mb-6">
           Экзамен на гражданство Ничегонии
         </h1>
 
-        <p className="text-lg text-[#111111] mb-4">
+        <p className="text-base sm:text-lg text-[#111111] mb-4">
           Для получения гражданства необходимо пройти
           официальный государственный экзамен.
         </p>
 
-        <p className="text-xl text-[#111111] italic mb-8">
+        <p className="text-lg sm:text-xl text-[#111111] italic mb-8">
           Провалить экзамен невозможно.
         </p>
 
-        <p className="text-lg text-[#111111] mb-4">
+        <p className="text-base sm:text-lg text-[#111111] mb-4">
           Но это не точно.
         </p>
 
@@ -795,7 +814,8 @@ export default function TestPage() {
               w-full
               bg-[#111111]
               text-white
-              py-4
+              py-3
+            sm:py-4
               rounded-lg
               font-semibold
             "
