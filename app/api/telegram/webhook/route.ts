@@ -6,6 +6,15 @@ import {
   sendTelegramMessage
 } from "@/lib/telegram";
 
+export const runtime = "nodejs";
+
+export async function GET() {
+  return NextResponse.json({
+    ok: true,
+    message: "Telegram webhook route is alive"
+  });
+}
+
 function isValidTelegramRequest(request: NextRequest) {
   const secret = process.env.TELEGRAM_WEBHOOK_SECRET;
 
@@ -138,6 +147,8 @@ export async function POST(request: NextRequest) {
 
   const update = await request.json();
 
+  console.log("TELEGRAM WEBHOOK UPDATE:", JSON.stringify(update));
+
   const callbackQuery = update.callback_query;
 
   if (!callbackQuery) {
@@ -148,6 +159,11 @@ export async function POST(request: NextRequest) {
   const fromId = callbackQuery.from?.id;
   const message = callbackQuery.message;
   const callbackData = String(callbackQuery.data || "");
+
+  console.log("TELEGRAM CALLBACK:", {
+    fromId,
+    callbackData
+  });
 
   if (!isAllowedTelegramUser(fromId)) {
     await answerTelegramCallback(
