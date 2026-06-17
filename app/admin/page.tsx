@@ -161,7 +161,6 @@ if (currentPs < 10) {
   citizenNumber = `ПС-${currentPs + 1}`;
   title = "Ничегошка Первого Созыва";
 } else {
-  // Сколько уже есть НЧ
   const { count: nchCount } = await supabase
     .from("citizens")
     .select("*", {
@@ -170,32 +169,26 @@ if (currentPs < 10) {
     })
     .like("citizen_number", "НЧ-%");
 
-const currentNch = nchCount ?? 0;
+  const currentNch = nchCount ?? 0;
+  const nextNumber = Math.max(currentNch + 1, 3);
 
-// Если есть только два основателя,
-// следующий номер должен быть 3
-console.log("НЧ записей:", currentNch);
-console.log("PS:", currentPs);
-console.log("NCH:", currentNch);
-console.log("All citizens:", await supabase
+  citizenNumber =
+    `НЧ-${String(nextNumber).padStart(6, "0")}`;
+}
+
+// ← insert должен быть ЗДЕСЬ
+const { error: insertError } = await supabase
   .from("citizens")
-  .select("citizen_number"));
-const nextNumber = Math.max(currentNch + 1, 3);
-console.log("currentNch =", currentNch);
-
-citizenNumber =
-  `НЧ-${String(nextNumber).padStart(6, "0")}`;
-
-const { error: insertError } = await supabase.from("citizens").insert([
-  {
-    application_id: id,
-    full_name: app.full_name,
-    country: app.country,
-    citizen_number: citizenNumber,
-    status: "active",
-    title
-  }
-]);
+  .insert([
+    {
+      application_id: id,
+      full_name: app.full_name,
+      country: app.country,
+      citizen_number: citizenNumber,
+      status: "active",
+      title
+    }
+  ]);
 
 if (insertError) {
   console.log(insertError);
@@ -1207,5 +1200,4 @@ if (insertError) {
       </div>
     </main>
   );
-}
 }
