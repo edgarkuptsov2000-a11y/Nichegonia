@@ -143,23 +143,48 @@ export default function AdminPage() {
         .eq("application_id", id)
         .maybeSingle();
 
-      const { count } = await supabase
-  .from("citizens")
-  .select("*", { count: "exact", head: true });
-
-const currentCount = count ?? 0;
-
 let citizenNumber = "";
 let title: string | null = null;
 
-if (currentCount < 10) {
-  const rank = currentCount + 1;
-  citizenNumber = `ПС-${rank}`;
+// Сколько уже есть ПС
+const { count: psCount } = await supabase
+  .from("citizens")
+  .select("*", {
+    count: "exact",
+    head: true
+  })
+  .like("citizen_number", "ПС-%");
+
+const currentPs = psCount ?? 0;
+
+if (currentPs < 10) {
+  citizenNumber = `ПС-${currentPs + 1}`;
   title = "Ничегошка Первого Созыва";
 } else {
-  const number = currentCount + 1;
-  citizenNumber = `НЧ-${String(number).padStart(6, "0")}`;
-}
+  // Сколько уже есть НЧ
+  const { count: nchCount } = await supabase
+    .from("citizens")
+    .select("*", {
+      count: "exact",
+      head: true
+    })
+    .like("citizen_number", "НЧ-%");
+
+const currentNch = nchCount ?? 0;
+
+// Если есть только два основателя,
+// следующий номер должен быть 3
+console.log("НЧ записей:", currentNch);
+console.log("PS:", currentPs);
+console.log("NCH:", currentNch);
+console.log("All citizens:", await supabase
+  .from("citizens")
+  .select("citizen_number"));
+const nextNumber = Math.max(currentNch + 1, 3);
+console.log("currentNch =", currentNch);
+
+citizenNumber =
+  `НЧ-${String(nextNumber).padStart(6, "0")}`;
 
 const { error: insertError } = await supabase.from("citizens").insert([
   {
@@ -1182,4 +1207,5 @@ if (insertError) {
       </div>
     </main>
   );
+}
 }
