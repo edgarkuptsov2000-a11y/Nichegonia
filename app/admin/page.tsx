@@ -135,81 +135,22 @@ async function fetchCitizens() {
   }
 
   async function updateStatus(id: number, status: string, app: Application) {
-    await supabase
-      .from("applications")
-      .update({
-        status,
-        approved_at: status === "Одобрено" ? new Date().toISOString() : null
+    const response = await fetch("/api/admin/update-status", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        id,
+        status
       })
-      .eq("id", id);
+    });
 
-    await supabase.from("admin_logs").insert([
-      {
-        action: status,
-        application_id: id,
-        application_number: app.application_number,
-        full_name: app.full_name
-      }
-    ]);
-
-    if (status === "Одобрено") {
-      const { data: existing } = await supabase
-        .from("citizens")
-        .select("id")
-        .eq("application_id", id)
-        .maybeSingle();
-
-let citizenNumber = "";
-let title: string | null = null;
-
-// Сколько уже есть ПС
-const { count: psCount } = await supabase
-  .from("citizens")
-  .select("*", {
-    count: "exact",
-    head: true
-  })
-  .like("citizen_number", "ПС-%");
-
-const currentPs = psCount ?? 0;
-
-if (currentPs < 10) {
-  citizenNumber = `ПС-${currentPs + 1}`;
-  title = "Ничегошка Первого Созыва";
-} else {
-  const { count: nchCount } = await supabase
-    .from("citizens")
-    .select("*", {
-      count: "exact",
-      head: true
-    })
-    .like("citizen_number", "НЧ-%");
-
-  const currentNch = nchCount ?? 0;
-  const nextNumber = Math.max(currentNch + 1, 3);
-
-  citizenNumber =
-    `НЧ-${String(nextNumber).padStart(6, "0")}`;
-}
-
-// ← insert должен быть ЗДЕСЬ
-const { error: insertError } = await supabase
-  .from("citizens")
-  .insert([
-    {
-      application_id: id,
-      full_name: app.full_name,
-      country: app.country,
-      citizen_number: citizenNumber,
-      status: "active",
-      title
+    if (!response.ok) {
+      const result = await response.json().catch(() => null);
+      alert(result?.error || "Не удалось обновить статус заявки.");
+      return;
     }
-  ]);
-
-if (insertError) {
-  console.log(insertError);
-}
-}
 
     await fetchData();
     await fetchLogs();
@@ -294,6 +235,34 @@ if (insertError) {
 
     if (!value) return null;
 
+    const citizen = citizens.find((item) => {
+      const number = item.citizen_number || "";
+      const fullName = item.full_name || "";
+
+      return (
+        number.toLowerCase() === value ||
+        number.toLowerCase().includes(value) ||
+        fullName.toLowerCase().includes(value)
+      );
+    });
+
+    if (citizen) {
+      const linkedApplication = applications.find(
+        (app) => String(app.id) === String(citizen.application_id)
+      );
+
+      return {
+        ...linkedApplication,
+        id: linkedApplication?.id || citizen.id,
+        full_name: citizen.full_name,
+        country: citizen.country,
+        application_number: citizen.citizen_number,
+        status: linkedApplication?.status || (citizen.status === "active" ? "Одобрено" : citizen.status),
+        photo_url: linkedApplication?.photo_url || citizen.photo_url,
+        approved_at: linkedApplication?.approved_at || citizen.approved_at
+      };
+    }
+
     return (
       applications.find((app) => {
         const number = app.application_number || "";
@@ -306,7 +275,8 @@ if (insertError) {
         );
       }) || null
     );
-  }, [applications, verifyNumber]);
+  }, [applications, citizens, verifyNumber]);
+
 
   return (
     <main className="

@@ -31,6 +31,7 @@ const FullPassport = forwardRef<HTMLDivElement, FullPassportProps>(
       .toUpperCase();
 
     const photoUrl = application.photo_url ?? "";
+    const passportPrefix = passportNumber.split("-")[0] || "НЧ";
 
     return (
       <div ref={ref} className="w-full bg-[#111111] p-4 rounded-[36px] text-[#111111]">
@@ -89,7 +90,7 @@ const FullPassport = forwardRef<HTMLDivElement, FullPassportProps>(
                   <p className="text-xs uppercase tracking-[0.2em] text-gray-500 font-bold">
                     Серия
                   </p>
-                  <p className="font-black">НЧ</p>
+                  <p className="font-black">{passportPrefix}</p>
                 </div>
 
                 <div>
@@ -212,7 +213,7 @@ const FullPassport = forwardRef<HTMLDivElement, FullPassportProps>(
                 </div>
 
                 <div className="w-24 h-24 rounded-full border-2 border-[#C9A646] flex items-center justify-center font-black text-[#C9A646]">
-                  НЧ
+                  {passportPrefix}
                 </div>
               </div>
             </div>

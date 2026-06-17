@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
+import { createCitizenForApprovedApplication } from "@/lib/citizenship";
 
 export async function POST(req: Request) {
   const body = await req.json();
@@ -41,56 +42,24 @@ export async function POST(req: Request) {
     );
   }
 
-  await supabaseAdmin.from("admin_logs").insert([
-    {
-      action: "Одобрено",
-      application_id: id,
-      application_number: application.application_number,
-      full_name: application.full_name
-    }
-  ]);
+  try {
+    const citizen = await createCitizenForApprovedApplication(application);
 
-  const { data: existingCitizen } = await supabaseAdmin
-    .from("citizens")
-    .select("id")
-    .eq("application_id", id)
-    .maybeSingle();
-
-  if (!existingCitizen) {
-    const citizenNumber =
-      application.application_number || `НЧ-${String(id).padStart(6, "0")}`;
-
-    const { count } = await supabaseAdmin
-      .from("citizens")
-      .select("*", {
-        count: "exact",
-        head: true
-      });
-
-    let title: string | null = null;
-
-    if ((count ?? 0) < 10) {
-      title = "Ничегошка Первого Созыва";
-    }
-
-    const { error: citizenError } = await supabaseAdmin.from("citizens").insert([
+    await supabaseAdmin.from("admin_logs").insert([
       {
+        action: "Одобрено",
         application_id: id,
-        full_name: application.full_name,
-        country: application.country,
-        application_number: application.application_number,
-        citizen_number: citizenNumber,
-        status: "active",
-        title
+        application_number: citizen.citizen_number,
+        full_name: application.full_name
       }
     ]);
+  } catch (citizenError) {
+    console.log("CITIZEN CREATE ERROR:", citizenError);
 
-    if (citizenError) {
-      return NextResponse.json(
-        { error: "Заявка одобрена, но гражданин не создан" },
-        { status: 500 }
-      );
-    }
+    return NextResponse.json(
+      { error: "Заявка одобрена, но гражданин не создан" },
+      { status: 500 }
+    );
   }
 
   return NextResponse.json({

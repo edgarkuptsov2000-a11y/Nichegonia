@@ -7,9 +7,11 @@ import { supabase } from "@/lib/supabase";
 import { QRCodeSVG } from "qrcode.react";
 
 type Application = {
+  id: number;
   full_name: string;
   country: string;
   application_number: string;
+  passport_number?: string | null;
   status: string;
   approved_at?: string | null;
   photo_url?: string | null;
@@ -43,12 +45,35 @@ export default function CabinetPage() {
       return;
     }
 
-    const { data, error } = await supabase
+    let { data, error } = await supabase
       .from("applications")
       .select("*")
       .eq("application_number", finalApplicationNumber)
       .eq("access_code", finalAccessCode)
-      .single();
+      .maybeSingle();
+
+    let passportNumber: string | null = null;
+
+    if (error || !data) {
+      const { data: citizen } = await supabase
+        .from("citizens")
+        .select("application_id, citizen_number")
+        .eq("citizen_number", finalApplicationNumber)
+        .maybeSingle();
+
+      if (citizen?.application_id) {
+        const applicationResult = await supabase
+          .from("applications")
+          .select("*")
+          .eq("id", citizen.application_id)
+          .eq("access_code", finalAccessCode)
+          .maybeSingle();
+
+        data = applicationResult.data;
+        error = applicationResult.error;
+        passportNumber = citizen.citizen_number;
+      }
+    }
 
     if (error || !data) {
       setError("Неверный номер заявки или код доступа.");
@@ -56,7 +81,20 @@ export default function CabinetPage() {
       return;
     }
 
-    setApplication(data);
+    if (!passportNumber && data.status === "Одобрено") {
+      const { data: citizen } = await supabase
+        .from("citizens")
+        .select("citizen_number")
+        .eq("application_id", data.id)
+        .maybeSingle();
+
+      passportNumber = citizen?.citizen_number || null;
+    }
+
+    setApplication({
+      ...data,
+      passport_number: passportNumber || data.application_number
+    });
     setCheckingSavedLogin(false);
   }
 
@@ -73,7 +111,7 @@ export default function CabinetPage() {
       });
 
       const link = document.createElement("a");
-      link.download = `passport-${application.application_number}.png`;
+      link.download = `passport-${application.passport_number || application.application_number}.png`;
       link.href = dataUrl;
       link.click();
     } catch (error) {
@@ -129,7 +167,7 @@ export default function CabinetPage() {
       const y = (pageHeight - renderHeight) / 2;
 
       pdf.addImage(dataUrl, "PNG", x, y, renderWidth, renderHeight);
-      pdf.save(`passport-${application.application_number}.pdf`);
+      pdf.save(`passport-${application.passport_number || application.application_number}.pdf`);
     } catch (error) {
       console.log("PASSPORT PDF ERROR:", error);
       alert("Не удалось скачать паспорт PDF. Попробуйте ещё раз.");
@@ -166,15 +204,15 @@ export default function CabinetPage() {
   }
 
   if (application) {
-    const passportNumber = application.application_number;
+    const passportNumber = application.passport_number || application.application_number;
 
     const issueDate = application.approved_at
       ? new Date(application.approved_at).toLocaleDateString("ru-RU")
       : "Не указана";
 
       const verifyUrl = origin
-  ? `${origin}/verify?number=${encodeURIComponent(application.application_number)}`
-  : application.application_number;
+  ? `${origin}/verify?number=${encodeURIComponent(passportNumber)}`
+  : passportNumber;
 
     const photoUrl = application.photo_url || "";
 
@@ -261,11 +299,11 @@ export default function CabinetPage() {
               border-gray-200
             ">
               <p className="text-gray-500 text-sm mb-1">
-                Номер заявки
+                Номер паспорта
               </p>
 
               <p className="font-black text-[#111111]">
-                {application.application_number}
+                {passportNumber}
               </p>
             </div>
 
@@ -895,7 +933,7 @@ export default function CabinetPage() {
 
         <input
           type="text"
-          placeholder="Например: НЧ-000001"
+          placeholder="Например: ПС-1 или НЧ-000001"
           value={applicationNumber}
           onChange={(e) => setApplicationNumber(e.target.value)}
           className="

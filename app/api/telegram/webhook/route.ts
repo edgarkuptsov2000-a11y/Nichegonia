@@ -5,6 +5,7 @@ import {
   editTelegramMessage,
   sendTelegramMessage
 } from "@/lib/telegram";
+import { createCitizenForApprovedApplication } from "@/lib/citizenship";
 
 export const runtime = "nodejs";
 
@@ -77,56 +78,37 @@ async function updateApplicationStatus(id: number, status: string) {
     };
   }
 
+  let applicationNumber = application.application_number;
+
+  if (status === "Одобрено") {
+    try {
+      const citizen = await createCitizenForApprovedApplication(application);
+      applicationNumber = citizen.citizen_number;
+    } catch (citizenError) {
+      console.log("TELEGRAM CITIZEN CREATE ERROR:", citizenError);
+
+      return {
+        ok: false,
+        error: "Статус изменён, но гражданин не создан"
+      };
+    }
+  }
+
   await supabaseAdmin.from("admin_logs").insert([
     {
       action: status,
       application_id: id,
-      application_number: application.application_number,
+      application_number: applicationNumber,
       full_name: application.full_name
     }
   ]);
 
-  if (status === "Одобрено") {
-    const { data: existingCitizen } = await supabaseAdmin
-      .from("citizens")
-      .select("id")
-      .eq("application_id", id)
-      .maybeSingle();
-
-    if (!existingCitizen) {
-      const citizenNumber =
-        application.application_number || `НЧ-${String(id).padStart(6, "0")}`;
-
-      const { count } = await supabaseAdmin
-        .from("citizens")
-        .select("*", {
-          count: "exact",
-          head: true
-        });
-
-      let title: string | null = null;
-
-      if ((count ?? 0) < 10) {
-        title = "Ничегошка Первого Созыва";
-      }
-
-      await supabaseAdmin.from("citizens").insert([
-        {
-          application_id: id,
-          full_name: application.full_name,
-          country: application.country,
-          application_number: application.application_number,
-          citizen_number: citizenNumber,
-          status: "active",
-          title
-        }
-      ]);
-    }
-  }
-
   return {
     ok: true,
-    application
+    application: {
+      ...application,
+      application_number: applicationNumber
+    }
   };
 }
 

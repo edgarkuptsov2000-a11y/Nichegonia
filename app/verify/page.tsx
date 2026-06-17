@@ -4,10 +4,10 @@ import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 
-type Application = {
+type PassportRecord = {
   full_name: string;
   country: string;
-  application_number: string;
+  passport_number: string;
   status: string;
   approved_at?: string | null;
   photo_url?: string | null;
@@ -17,29 +17,75 @@ function VerifyContent() {
   const searchParams = useSearchParams();
   const number = searchParams.get("number") || "";
 
-  const [application, setApplication] = useState<Application | null>(null);
+  const [passport, setPassport] = useState<PassportRecord | null>(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
 
   useEffect(() => {
     async function checkPassport() {
-      if (!number) {
+      const normalizedNumber = number.trim();
+
+      if (!normalizedNumber) {
         setLoading(false);
         setNotFound(true);
         return;
       }
 
-      const { data, error } = await supabase
+      const { data: citizen, error: citizenError } = await supabase
+        .from("citizens")
+        .select("application_id, full_name, country, citizen_number, status")
+        .eq("citizen_number", normalizedNumber)
+        .maybeSingle();
+
+      if (!citizenError && citizen) {
+        let approvedAt: string | null = null;
+        let photoUrl: string | null = null;
+        let applicationStatus: string | null = null;
+
+        if (citizen.application_id) {
+          const { data: application } = await supabase
+            .from("applications")
+            .select("approved_at, photo_url, status")
+            .eq("id", citizen.application_id)
+            .maybeSingle();
+
+          approvedAt = application?.approved_at || null;
+          photoUrl = application?.photo_url || null;
+          applicationStatus = application?.status || null;
+        }
+
+        setPassport({
+          full_name: citizen.full_name,
+          country: citizen.country,
+          passport_number: citizen.citizen_number,
+          status: applicationStatus || citizen.status || "Одобрено",
+          approved_at: approvedAt,
+          photo_url: photoUrl
+        });
+        setNotFound(false);
+        setLoading(false);
+        return;
+      }
+
+      const { data: application, error: applicationError } = await supabase
         .from("applications")
         .select("full_name, country, application_number, status, approved_at, photo_url")
-        .eq("application_number", number)
-        .single();
+        .eq("application_number", normalizedNumber)
+        .eq("status", "Одобрено")
+        .maybeSingle();
 
-      if (error || !data) {
-        setApplication(null);
+      if (applicationError || !application) {
+        setPassport(null);
         setNotFound(true);
       } else {
-        setApplication(data);
+        setPassport({
+          full_name: application.full_name,
+          country: application.country,
+          passport_number: application.application_number,
+          status: application.status,
+          approved_at: application.approved_at,
+          photo_url: application.photo_url
+        });
         setNotFound(false);
       }
 
@@ -77,7 +123,7 @@ function VerifyContent() {
     );
   }
 
-  if (notFound || !application) {
+  if (notFound || !passport) {
     return (
       <main className="
         min-h-screen
@@ -133,10 +179,10 @@ function VerifyContent() {
     );
   }
 
-  const isApproved = application.status === "Одобрено";
+  const isApproved = passport.status === "Одобрено" || passport.status === "active";
 
-  const issueDate = application.approved_at
-    ? new Date(application.approved_at).toLocaleDateString("ru-RU")
+  const issueDate = passport.approved_at
+    ? new Date(passport.approved_at).toLocaleDateString("ru-RU")
     : "Не указана";
 
   return (
@@ -178,10 +224,10 @@ function VerifyContent() {
           </p>
         </div>
 
-        {application.photo_url && (
+        {passport.photo_url && (
           <div className="flex justify-center mb-8">
             <img
-              src={application.photo_url}
+              src={passport.photo_url}
               alt="Фото гражданина"
               className="
                 w-40
@@ -209,7 +255,7 @@ function VerifyContent() {
             </p>
 
             <p className="text-2xl font-black">
-              {application.full_name}
+              {passport.full_name}
             </p>
           </div>
 
@@ -225,7 +271,7 @@ function VerifyContent() {
             </p>
 
             <p className="text-2xl font-black">
-              {application.application_number}
+              {passport.passport_number}
             </p>
           </div>
 
@@ -241,7 +287,7 @@ function VerifyContent() {
             </p>
 
             <p className="text-2xl font-black">
-              {application.country}
+              {passport.country}
             </p>
           </div>
 
@@ -288,7 +334,7 @@ function VerifyContent() {
                 isApproved ? "text-green-800" : "text-yellow-800"
               }
             `}>
-              {isApproved ? "🟢 Одобрено" : application.status}
+              {isApproved ? "🟢 Одобрено" : passport.status}
             </p>
           </div>
         </div>

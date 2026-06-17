@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { sendNewApplicationToTelegram } from "@/lib/telegram";
+import { getNextApplicationNumber } from "@/lib/citizenship";
 
 export const runtime = "nodejs";
 
@@ -89,7 +90,7 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const applicationNumber = `НЧ-${String(inserted.id).padStart(6, "0")}`;
+  const applicationNumber = await getNextApplicationNumber(inserted.id);
 
   const { error: updateError } = await supabaseAdmin
     .from("applications")

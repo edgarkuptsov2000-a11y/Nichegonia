@@ -12,6 +12,35 @@ type ApplicationForCitizen = {
   application_number?: string | null;
 };
 
+function normalizeNumber(value?: string | null) {
+  return String(value || "").trim().toUpperCase();
+}
+
+function parseFirstConvocationIndex(value?: string | null) {
+  const normalized = normalizeNumber(value);
+  const match = normalized.match(/^ПС-(\d+)$/);
+
+  if (!match) {
+    return null;
+  }
+
+  const index = Number(match[1]);
+
+  if (!Number.isInteger(index) || index < 1 || index > FIRST_CONVOCATION_LIMIT) {
+    return null;
+  }
+
+  return index;
+}
+
+export function isFirstConvocationNumber(value?: string | null) {
+  return parseFirstConvocationIndex(value) !== null;
+}
+
+export function formatFirstConvocationNumber(index: number) {
+  return `${FIRST_CONVOCATION_NUMBER_PREFIX}-${index}`;
+}
+
 export function getFallbackCitizenNumber(application: ApplicationForCitizen) {
   return (
     application.application_number ||
@@ -19,26 +48,66 @@ export function getFallbackCitizenNumber(application: ApplicationForCitizen) {
   );
 }
 
-async function getNextFirstConvocationNumber() {
-  const { count, error } = await supabaseAdmin
+async function collectUsedFirstConvocationIndexes() {
+  const usedIndexes = new Set<number>();
+
+  const { data: applications, error: applicationsError } = await supabaseAdmin
+    .from("applications")
+    .select("application_number")
+    .like("application_number", `${FIRST_CONVOCATION_NUMBER_PREFIX}-%`);
+
+  if (applicationsError) {
+    throw applicationsError;
+  }
+
+  for (const application of applications || []) {
+    const index = parseFirstConvocationIndex(application.application_number);
+
+    if (index !== null) {
+      usedIndexes.add(index);
+    }
+  }
+
+  const { data: citizens, error: citizensError } = await supabaseAdmin
     .from("citizens")
-    .select("id", {
-      count: "exact",
-      head: true
-    })
-    .eq("title", FIRST_CONVOCATION_TITLE);
+    .select("citizen_number")
+    .like("citizen_number", `${FIRST_CONVOCATION_NUMBER_PREFIX}-%`);
 
-  if (error) {
-    throw error;
+  if (citizensError) {
+    throw citizensError;
   }
 
-  const usedCount = count ?? 0;
+  for (const citizen of citizens || []) {
+    const index = parseFirstConvocationIndex(citizen.citizen_number);
 
-  if (usedCount >= FIRST_CONVOCATION_LIMIT) {
-    return null;
+    if (index !== null) {
+      usedIndexes.add(index);
+    }
   }
 
-  return usedCount + 1;
+  return usedIndexes;
+}
+
+export async function getNextFirstConvocationNumber() {
+  const usedIndexes = await collectUsedFirstConvocationIndexes();
+
+  for (let index = 1; index <= FIRST_CONVOCATION_LIMIT; index += 1) {
+    if (!usedIndexes.has(index)) {
+      return index;
+    }
+  }
+
+  return null;
+}
+
+export async function getNextApplicationNumber(applicationId: number) {
+  const firstConvocationIndex = await getNextFirstConvocationNumber();
+
+  if (firstConvocationIndex !== null) {
+    return formatFirstConvocationNumber(firstConvocationIndex);
+  }
+
+  return `${DEFAULT_CITIZEN_NUMBER_PREFIX}-${String(applicationId).padStart(6, "0")}`;
 }
 
 export async function createCitizenForApprovedApplication(application: ApplicationForCitizen) {
@@ -53,17 +122,48 @@ export async function createCitizenForApprovedApplication(application: Applicati
   }
 
   if (existingCitizen) {
+    if (application.application_number !== existingCitizen.citizen_number) {
+      const { error: applicationNumberError } = await supabaseAdmin
+        .from("applications")
+        .update({ application_number: existingCitizen.citizen_number })
+        .eq("id", application.id);
+
+      if (applicationNumberError) {
+        throw applicationNumberError;
+      }
+    }
+
     return existingCitizen;
   }
 
-  const firstConvocationNumber = await getNextFirstConvocationNumber();
-  const isFirstConvocation = firstConvocationNumber !== null;
+  let citizenNumber = application.application_number || null;
 
-  const citizenNumber = isFirstConvocation
-    ? `${FIRST_CONVOCATION_NUMBER_PREFIX}-${firstConvocationNumber}`
-    : getFallbackCitizenNumber(application);
+  if (!isFirstConvocationNumber(citizenNumber)) {
+    const firstConvocationIndex = await getNextFirstConvocationNumber();
 
-  const title = isFirstConvocation ? FIRST_CONVOCATION_TITLE : null;
+    if (firstConvocationIndex !== null) {
+      citizenNumber = formatFirstConvocationNumber(firstConvocationIndex);
+    }
+  }
+
+  if (!citizenNumber) {
+    citizenNumber = getFallbackCitizenNumber(application);
+  }
+
+  const title = isFirstConvocationNumber(citizenNumber)
+    ? FIRST_CONVOCATION_TITLE
+    : null;
+
+  if (application.application_number !== citizenNumber) {
+    const { error: applicationNumberError } = await supabaseAdmin
+      .from("applications")
+      .update({ application_number: citizenNumber })
+      .eq("id", application.id);
+
+    if (applicationNumberError) {
+      throw applicationNumberError;
+    }
+  }
 
   const { data: createdCitizen, error: citizenError } = await supabaseAdmin
     .from("citizens")
@@ -72,7 +172,7 @@ export async function createCitizenForApprovedApplication(application: Applicati
         application_id: application.id,
         full_name: application.full_name,
         country: application.country,
-        application_number: application.application_number,
+        application_number: citizenNumber,
         citizen_number: citizenNumber,
         status: "active",
         title

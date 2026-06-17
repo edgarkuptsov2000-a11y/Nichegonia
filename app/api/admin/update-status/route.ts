@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
+import { createCitizenForApprovedApplication } from "@/lib/citizenship";
 
 function isAdmin(request: NextRequest) {
   const adminCookie = request.cookies.get("admin_auth")?.value;
@@ -60,63 +61,35 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  let logApplicationNumber = application.application_number;
+
+  if (status === "Одобрено") {
+    try {
+      const citizen = await createCitizenForApprovedApplication(application);
+      logApplicationNumber = citizen.citizen_number;
+    } catch (citizenError) {
+      console.log("CITIZEN CREATE ERROR:", citizenError);
+
+      return NextResponse.json(
+        { error: "Статус обновлён, но гражданин не создан" },
+        { status: 500 }
+      );
+    }
+  }
+
   const { error: logError } = await supabaseAdmin
     .from("admin_logs")
     .insert([
       {
         action: status,
         application_id: id,
-        application_number: application.application_number,
+        application_number: logApplicationNumber,
         full_name: application.full_name
       }
     ]);
 
   if (logError) {
     console.log("ADMIN LOG INSERT ERROR:", logError);
-  }
-
-  if (status === "Одобрено") {
-    const { data: existingCitizen } = await supabaseAdmin
-      .from("citizens")
-      .select("id")
-      .eq("application_id", id)
-      .maybeSingle();
-
-    if (!existingCitizen) {
-      const citizenNumber =
-        application.application_number || `НЧ-${String(id).padStart(6, "0")}`;
-
-      const { count } = await supabaseAdmin
-        .from("citizens")
-        .select("*", {
-          count: "exact",
-          head: true
-        });
-
-      let title: string | null = null;
-
-      if ((count ?? 0) < 10) {
-        title = "Ничегошка Первого Созыва";
-      }
-
-      const { error: citizenError } = await supabaseAdmin
-        .from("citizens")
-        .insert([
-          {
-            application_id: id,
-            full_name: application.full_name,
-            country: application.country,
-            application_number: application.application_number,
-            citizen_number: citizenNumber,
-            status: "active",
-            title
-          }
-        ]);
-
-      if (citizenError) {
-        console.log("CITIZEN INSERT ERROR:", citizenError);
-      }
-    }
   }
 
   return NextResponse.json({

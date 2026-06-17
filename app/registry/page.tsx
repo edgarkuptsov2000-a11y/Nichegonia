@@ -5,9 +5,10 @@ import { supabase } from "@/lib/supabase";
 
 type Citizen = {
   id?: number | string | null;
+  application_id?: number | string | null;
   full_name?: string | null;
   country?: string | null;
-  application_number?: string | null;
+  citizen_number?: string | null;
   status?: string | null;
   approved_at?: string | null;
   photo_url?: string | null;
@@ -25,19 +26,55 @@ export default function RegistryPage() {
   async function loadCitizens() {
     setLoading(true);
 
-    const { data, error } = await supabase
-      .from("applications")
-      .select("id, full_name, country, application_number, status, approved_at, photo_url")
-      .eq("status", "Одобрено")
-      .order("approved_at", { ascending: false });
+    const { data: citizenRows, error: citizensError } = await supabase
+      .from("citizens")
+      .select("id, application_id, full_name, country, citizen_number, status")
+      .eq("status", "active")
+      .order("id", { ascending: false });
 
-    if (error) {
-      console.log("REGISTRY LOAD ERROR:", error);
+    if (citizensError) {
+      console.log("REGISTRY LOAD ERROR:", citizensError);
       setCitizens([]);
-    } else {
-      setCitizens(data || []);
+      setLoading(false);
+      return;
     }
 
+    const applicationIds = Array.from(
+      new Set(
+        (citizenRows || [])
+          .map((citizen) => citizen.application_id)
+          .filter(Boolean)
+      )
+    );
+
+    let applicationsById = new Map<number | string, any>();
+
+    if (applicationIds.length > 0) {
+      const { data: applications, error: applicationsError } = await supabase
+        .from("applications")
+        .select("id, approved_at, photo_url")
+        .in("id", applicationIds);
+
+      if (applicationsError) {
+        console.log("REGISTRY APPLICATIONS LOAD ERROR:", applicationsError);
+      } else {
+        applicationsById = new Map(
+          (applications || []).map((application) => [application.id, application])
+        );
+      }
+    }
+
+    const normalizedCitizens = (citizenRows || []).map((citizen) => {
+      const application = citizen.application_id ? applicationsById.get(citizen.application_id) : null;
+
+      return {
+        ...citizen,
+        approved_at: application?.approved_at || null,
+        photo_url: application?.photo_url || null
+      };
+    });
+
+    setCitizens(normalizedCitizens);
     setLoading(false);
   }
 
@@ -51,12 +88,12 @@ export default function RegistryPage() {
     return citizens.filter((citizen) => {
       const fullName = citizen.full_name || "";
       const country = citizen.country || "";
-      const applicationNumber = citizen.application_number || "";
+      const passportNumber = citizen.citizen_number || "";
 
       return (
         fullName.toLowerCase().includes(value) ||
         country.toLowerCase().includes(value) ||
-        applicationNumber.toLowerCase().includes(value)
+        passportNumber.toLowerCase().includes(value)
       );
     });
   }, [citizens, search]);
@@ -228,8 +265,8 @@ export default function RegistryPage() {
             {filteredCitizens.map((citizen, index) => {
               const fullName = citizen.full_name || "Без имени";
               const country = citizen.country || "Не указана";
-              const applicationNumber =
-                citizen.application_number || "Без номера";
+              const passportNumber =
+                citizen.citizen_number || "Без номера";
 
               const issueDate = citizen.approved_at
                 ? new Date(citizen.approved_at).toLocaleDateString("ru-RU")
@@ -243,13 +280,13 @@ export default function RegistryPage() {
                 .toUpperCase();
 
               const verifyHref =
-                citizen.application_number
-                  ? `/verify?number=${encodeURIComponent(citizen.application_number)}`
+                citizen.citizen_number
+                  ? `/verify?number=${encodeURIComponent(citizen.citizen_number)}`
                   : "#";
 
               return (
                 <div
-                  key={`${citizen.id ?? "no-id"}-${citizen.application_number ?? "no-number"}-${index}`}
+                  key={`${citizen.id ?? "no-id"}-${citizen.citizen_number ?? "no-number"}-${index}`}
                   className="
                     bg-white
                     rounded-3xl
@@ -326,7 +363,7 @@ export default function RegistryPage() {
                       </p>
 
                       <p className="font-black text-lg">
-                        {applicationNumber}
+                        {passportNumber}
                       </p>
                     </div>
 
@@ -363,7 +400,7 @@ export default function RegistryPage() {
                     </div>
                   </div>
 
-                  {citizen.application_number ? (
+                  {citizen.citizen_number ? (
                     <a
                       href={verifyHref}
                       className="
