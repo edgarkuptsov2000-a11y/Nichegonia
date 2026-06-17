@@ -82,7 +82,7 @@ export default function AdminPage() {
 }
 
 async function fetchCitizens() {
-  const { data, error } = await supabase
+  const { data: citizenRows, error } = await supabase
     .from("citizens")
     .select("*")
     .order("id", { ascending: false });
@@ -91,7 +91,78 @@ async function fetchCitizens() {
     console.log("CITIZENS ERROR:", error);
     setCitizens([]);
   } else {
-    setCitizens(data || []);
+    const applicationIds = Array.from(
+      new Set(
+        (citizenRows || [])
+          .map((citizen) => citizen.application_id)
+          .filter(Boolean)
+      )
+    );
+
+    const citizenNumbers = Array.from(
+      new Set(
+        (citizenRows || [])
+          .map((citizen) => citizen.citizen_number || citizen.application_number)
+          .filter(Boolean)
+      )
+    );
+
+    let applicationsById = new Map<number | string, any>();
+    let applicationsByNumber = new Map<string, any>();
+
+    if (applicationIds.length > 0) {
+      const { data: applications, error: applicationsError } = await supabase
+        .from("applications")
+        .select("id, application_number, approved_at, photo_url, status")
+        .in("id", applicationIds);
+
+      if (applicationsError) {
+        console.log("CITIZENS APPLICATIONS BY ID ERROR:", applicationsError);
+      } else {
+        applicationsById = new Map(
+          (applications || []).map((application) => [application.id, application])
+        );
+      }
+    }
+
+    if (citizenNumbers.length > 0) {
+      const { data: applications, error: applicationsError } = await supabase
+        .from("applications")
+        .select("id, application_number, approved_at, photo_url, status")
+        .in("application_number", citizenNumbers);
+
+      if (applicationsError) {
+        console.log("CITIZENS APPLICATIONS BY NUMBER ERROR:", applicationsError);
+      } else {
+        applicationsByNumber = new Map(
+          (applications || [])
+            .filter((application) => application.application_number)
+            .map((application) => [application.application_number, application])
+        );
+      }
+    }
+
+    const normalizedCitizens = (citizenRows || []).map((citizen) => {
+      const applicationById = citizen.application_id
+        ? applicationsById.get(citizen.application_id)
+        : null;
+
+      const citizenNumber = citizen.citizen_number || citizen.application_number;
+      const applicationByNumber = citizenNumber
+        ? applicationsByNumber.get(citizenNumber)
+        : null;
+
+      const application = applicationById || applicationByNumber;
+
+      return {
+        ...citizen,
+        approved_at: citizen.approved_at || application?.approved_at || null,
+        photo_url: citizen.photo_url || application?.photo_url || null,
+        application_status: application?.status || null
+      };
+    });
+
+    setCitizens(normalizedCitizens);
   }
 }
 
