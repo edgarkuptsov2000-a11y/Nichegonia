@@ -195,9 +195,6 @@ export default function TestPage() {
       const applicationNumber = result.applicationNumber;
       const accessCode = result.accessCode;
 
-      localStorage.setItem("application_number", applicationNumber);
-      localStorage.setItem("access_code", accessCode);
-
       setSubmittedApplicationNumber(applicationNumber);
       setSubmittedAccessCode(accessCode);
 
@@ -219,16 +216,6 @@ export default function TestPage() {
   }
 
   if (submitted) {
-    const savedApplicationNumber =
-      typeof window !== "undefined"
-        ? localStorage.getItem("application_number")
-        : "";
-
-    const savedAccessCode =
-      typeof window !== "undefined"
-        ? localStorage.getItem("access_code")
-        : "";
-
     return (
       <main className="min-h-[100dvh] bg-[#F7F6F3] flex items-center justify-center px-4 sm:px-6 py-6 sm:py-10">
         <div className="
@@ -307,7 +294,7 @@ export default function TestPage() {
                 text-[#111111]
                 break-all
               ">
-                {submittedApplicationNumber || savedApplicationNumber || "Не создан"}
+                {submittedApplicationNumber || "Не создан"}
               </p>
             </div>
 
@@ -337,7 +324,7 @@ export default function TestPage() {
                 text-[#111111]
                 break-all
               ">
-                {submittedAccessCode || savedAccessCode || "Не создан"}
+                {submittedAccessCode || "Не создан"}
               </p>
             </div>
 

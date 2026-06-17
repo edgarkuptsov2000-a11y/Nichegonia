@@ -165,14 +165,36 @@ const FullPassport = forwardRef<HTMLDivElement, FullPassportProps>(
                 <div>
                   {photoUrl ? (
                     <img
-                      src={photoUrl}
-                      alt="Фото гражданина"
-                      className="w-[170px] h-[210px] rounded-2xl object-cover border border-[#D8C8A8] bg-[#E8DFCF]"
-                    />
+  src={photoUrl}
+  alt="Фото гражданина"
+  className="
+    w-[160px]
+    aspect-[3/4]
+    object-cover
+    object-center
+    rounded-xl
+    border
+    border-[#D8C8A8]
+    bg-[#E8DFCF]
+  "
+/>
                   ) : (
-                    <div className="w-[170px] h-[210px] rounded-2xl bg-[#E8DFCF] border border-[#D8C8A8] flex items-center justify-center text-5xl font-black text-[#111111]">
-                      {initials}
-                    </div>
+                    <div className="
+  w-[160px]
+  aspect-[3/4]
+  rounded-xl
+  bg-[#E8DFCF]
+  border
+  border-[#D8C8A8]
+  flex
+  items-center
+  justify-center
+  text-5xl
+  font-black
+  text-[#111111]
+">
+  {initials}
+</div>
                   )}
 
                   <p className="text-center text-xs uppercase tracking-[0.2em] text-gray-500 mt-4 font-bold">

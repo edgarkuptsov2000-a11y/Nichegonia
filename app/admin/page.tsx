@@ -143,44 +143,51 @@ export default function AdminPage() {
         .eq("application_id", id)
         .maybeSingle();
 
-      if (!existing) {
-        const citizenNumber =
-          app.application_number || `НЧ-${String(id).padStart(6, "0")}`;
+      const { count } = await supabase
+  .from("citizens")
+  .select("*", { count: "exact", head: true });
 
-        const { error: insertError } = await supabase.from("citizens").insert([
-          {
-            application_id: id,
-            full_name: app.full_name,
-            country: app.country,
-            citizen_number: citizenNumber,
-            status: "active"
-          }
-        ]);
+const currentCount = count ?? 0;
 
-        if (insertError) {
-          console.log("CITIZEN INSERT ERROR:", insertError);
-        }
-      }
-    }
+let citizenNumber = "";
+let title: string | null = null;
+
+if (currentCount < 10) {
+  const rank = currentCount + 1;
+  citizenNumber = `ПС-${rank}`;
+  title = "Ничегошка Первого Созыва";
+} else {
+  const number = currentCount + 1;
+  citizenNumber = `НЧ-${String(number).padStart(6, "0")}`;
+}
+
+const { error: insertError } = await supabase.from("citizens").insert([
+  {
+    application_id: id,
+    full_name: app.full_name,
+    country: app.country,
+    citizen_number: citizenNumber,
+    status: "active",
+    title
+  }
+]);
+
+if (insertError) {
+  console.log(insertError);
+}
+}
 
     await fetchData();
     await fetchLogs();
   }
 
   function getVerifyLink(applicationNumber?: string | null) {
-    async function logoutAdmin() {
-  await fetch("/api/admin-logout", {
-    method: "POST"
-  });
+  if (!applicationNumber) return "";
 
-  window.location.href = "/admin/login";
+  const path = `/verify?number=${encodeURIComponent(applicationNumber)}`;
+
+  return origin ? `${origin}${path}` : path;
 }
-    if (!applicationNumber) return "";
-
-    const path = `/verify?number=${encodeURIComponent(applicationNumber)}`;
-
-    return origin ? `${origin}${path}` : path;
-  }
 
   async function copyVerifyLink(applicationNumber?: string | null) {
     const link = getVerifyLink(applicationNumber);
@@ -560,28 +567,31 @@ export default function AdminPage() {
                               src={app.photo_url}
                               alt="Фото заявителя"
                               className="
-                                w-24
-                                h-24
-                                rounded-2xl
-                                object-cover
-                                border-2
-                                border-[#C9A646]
-                              "
+  w-20
+  h-20
+  rounded-lg
+  object-cover
+  object-center
+  border-2
+  border-[#C9A646]
+  flex-shrink-0
+"
                             />
                           ) : (
                             <div className="
-                              w-24
-                              h-24
-                              rounded-2xl
-                              bg-[#EFE8D8]
-                              border-2
-                              border-[#C9A646]
-                              flex
-                              items-center
-                              justify-center
-                              font-black
-                              text-3xl
-                            ">
+  w-20
+  h-20
+  rounded-lg
+  bg-[#EFE8D8]
+  border-2
+  border-[#C9A646]
+  flex
+  items-center
+  justify-center
+  font-black
+  text-2xl
+  flex-shrink-0
+">
                               Н
                             </div>
                           )}
@@ -823,28 +833,31 @@ export default function AdminPage() {
                             src={citizen.photo_url}
                             alt="Фото гражданина"
                             className="
-                              w-20
-                              h-20
-                              rounded-2xl
-                              object-cover
-                              border-2
-                              border-[#C9A646]
-                            "
+  w-20
+  h-20
+  rounded-lg
+  object-cover
+  object-center
+  border-2
+  border-[#C9A646]
+  flex-shrink-0
+"
                           />
                         ) : (
                           <div className="
-                            w-20
-                            h-20
-                            rounded-2xl
-                            bg-[#EFE8D8]
-                            border-2
-                            border-[#C9A646]
-                            flex
-                            items-center
-                            justify-center
-                            font-black
-                            text-2xl
-                          ">
+  w-20
+  h-20
+  rounded-lg
+  bg-[#EFE8D8]
+  border-2
+  border-[#C9A646]
+  flex
+  items-center
+  justify-center
+  font-black
+  text-2xl
+  flex-shrink-0
+">
                             Н
                           </div>
                         )}

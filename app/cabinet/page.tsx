@@ -23,24 +23,12 @@ export default function CabinetPage() {
   const [checkingSavedLogin, setCheckingSavedLogin] = useState(true);
   const [showPassport, setShowPassport] = useState(false);
   const [origin, setOrigin] = useState("");
-  const [rememberMe, setRememberMe] = useState(false);
 
   const passportRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     setOrigin(window.location.origin);
-    const savedApplicationNumber = localStorage.getItem("application_number");
-    const savedAccessCode = localStorage.getItem("access_code");
-
-    if (savedApplicationNumber && savedAccessCode) {
-      setApplicationNumber(savedApplicationNumber);
-      setAccessCode(savedAccessCode);
-
-      login(savedApplicationNumber, savedAccessCode);
-    } else {
-      setCheckingSavedLogin(false);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    setCheckingSavedLogin(false);
   }, []);
 
   async function login(savedNumber?: string, savedCode?: string) {
@@ -63,28 +51,10 @@ export default function CabinetPage() {
       .single();
 
     if (error || !data) {
-      localStorage.removeItem("application_number");
-      localStorage.removeItem("access_code");
-
       setError("Неверный номер заявки или код доступа.");
       setCheckingSavedLogin(false);
       return;
     }
-
-    if (rememberMe) {
-  localStorage.setItem(
-    "application_number",
-    finalApplicationNumber
-  );
-
-  localStorage.setItem(
-    "access_code",
-    finalAccessCode
-  );
-} else {
-  localStorage.removeItem("application_number");
-  localStorage.removeItem("access_code");
-}
 
     setApplication(data);
     setCheckingSavedLogin(false);
@@ -342,9 +312,6 @@ export default function CabinetPage() {
 
           <button
             onClick={() => {
-              localStorage.removeItem("application_number");
-              localStorage.removeItem("access_code");
-
               setApplication(null);
               setApplicationNumber("");
               setAccessCode("");
@@ -626,40 +593,34 @@ export default function CabinetPage() {
                         </p>
 
                         {photoUrl ? (
-                          <img
-                            src={photoUrl}
-                            alt="Фото гражданина"
-                            className="
-                              w-[140px]
-                              h-[175px]
-                              sm:w-[170px]
-                              sm:h-[210px]
-                              rounded-2xl
-                              object-cover
-                              border
-                              border-[#D8C8A8]
-                              bg-[#E8DFCF]
-                              shadow-lg
-                            "
-                          />
-                        ) : (
+  <img
+    src={photoUrl}
+    alt="Фото гражданина"
+    className="
+      w-[150px]
+      h-[200px]
+      sm:w-[170px]
+      sm:h-[230px]
+      rounded-xl
+      object-cover
+      object-center
+      border
+      border-[#D8C8A8]
+      bg-[#E8DFCF]
+      shadow-lg
+      flex-shrink-0
+    "
+  />
+) : (
                           <div className="
-                            w-[140px]
-                            h-[175px]
-                            sm:w-[170px]
-                            sm:h-[210px]
-                            rounded-2xl
-                            bg-[#E8DFCF]
-                            border
-                            border-[#D8C8A8]
-                            flex
-                            items-center
-                            justify-center
-                            text-3xl sm:text-5xl
-                            font-black
-                            text-[#111111]
-                            shadow-lg
-                          ">
+  w-[160px]
+  aspect-[3/4]
+  rounded-xl
+  object-cover
+  object-center
+  border
+  border-[#D8C8A8]
+">
                             {initials}
                           </div>
                         )}
@@ -980,23 +941,6 @@ export default function CabinetPage() {
             focus:border-[#111111]
           "
         />
-
-        <div className="flex items-center gap-3 mb-6">
-  <input
-    type="checkbox"
-    id="remember"
-    checked={rememberMe}
-    onChange={(e) => setRememberMe(e.target.checked)}
-    className="w-5 h-5"
-  />
-
-  <label
-    htmlFor="remember"
-    className="text-[#111111] font-medium"
-  >
-    Запомнить меня
-  </label>
-</div>
 
         {error && (
           <div className="

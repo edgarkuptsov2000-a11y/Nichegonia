@@ -97,13 +97,28 @@ async function updateApplicationStatus(id: number, status: string) {
       const citizenNumber =
         application.application_number || `НЧ-${String(id).padStart(6, "0")}`;
 
+      const { count } = await supabaseAdmin
+        .from("citizens")
+        .select("*", {
+          count: "exact",
+          head: true
+        });
+
+      let title: string | null = null;
+
+      if ((count ?? 0) < 10) {
+        title = "Ничегошка Первого Созыва";
+      }
+
       await supabaseAdmin.from("citizens").insert([
         {
           application_id: id,
           full_name: application.full_name,
           country: application.country,
+          application_number: application.application_number,
           citizen_number: citizenNumber,
-          status: "active"
+          status: "active",
+          title
         }
       ]);
     }
