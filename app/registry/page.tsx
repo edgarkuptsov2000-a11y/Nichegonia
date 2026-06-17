@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase";
+import { FIRST_UNION_TITLE, isFirstUnionNumber } from "@/lib/first-union";
 
 type Citizen = {
   id?: number | string | null;
@@ -10,6 +11,7 @@ type Citizen = {
   country?: string | null;
   citizen_number?: string | null;
   status?: string | null;
+  title?: string | null;
   approved_at?: string | null;
   photo_url?: string | null;
 };
@@ -28,7 +30,7 @@ export default function RegistryPage() {
 
     const { data: citizenRows, error: citizensError } = await supabase
       .from("citizens")
-      .select("id, application_id, full_name, country, citizen_number, status")
+      .select("id, application_id, full_name, country, citizen_number, status, title")
       .eq("status", "active")
       .order("id", { ascending: false });
 
@@ -89,11 +91,13 @@ export default function RegistryPage() {
       const fullName = citizen.full_name || "";
       const country = citizen.country || "";
       const passportNumber = citizen.citizen_number || "";
+      const displayStatus = isFirstUnionNumber(passportNumber) ? FIRST_UNION_TITLE : "Ничегошка";
 
       return (
         fullName.toLowerCase().includes(value) ||
         country.toLowerCase().includes(value) ||
-        passportNumber.toLowerCase().includes(value)
+        passportNumber.toLowerCase().includes(value) ||
+        displayStatus.toLowerCase().includes(value)
       );
     });
   }, [citizens, search]);
@@ -267,6 +271,8 @@ export default function RegistryPage() {
               const country = citizen.country || "Не указана";
               const passportNumber =
                 citizen.citizen_number || "Без номера";
+              const isFirstUnionCitizen = isFirstUnionNumber(citizen.citizen_number);
+              const displayStatus = isFirstUnionCitizen ? FIRST_UNION_TITLE : "Активный ничегошка";
 
               const issueDate = citizen.approved_at
                 ? new Date(citizen.approved_at).toLocaleDateString("ru-RU")
@@ -287,16 +293,19 @@ export default function RegistryPage() {
               return (
                 <div
                   key={`${citizen.id ?? "no-id"}-${citizen.citizen_number ?? "no-number"}-${index}`}
-                  className="
-                    bg-white
+                  className={`
                     rounded-3xl
                     shadow-xl
                     border
-                    border-gray-200
                     p-6
                     hover:shadow-2xl
                     transition
-                  "
+                    ${
+                      isFirstUnionCitizen
+                        ? "bg-gradient-to-br from-white via-[#FFF7D6] to-[#F3E4A3] border-[#C9A646]"
+                        : "bg-white border-gray-200"
+                    }
+                  `}
                 >
                   <div className="
                     flex
@@ -347,6 +356,12 @@ export default function RegistryPage() {
                       <p className="text-gray-500 font-semibold">
                         {country}
                       </p>
+
+                      {isFirstUnionCitizen && (
+                        <p className="mt-2 inline-flex rounded-full border border-[#C9A646] bg-[#FFF7D6] px-3 py-1 text-xs font-black text-[#7A5C12]">
+                          👑 Первый Союз
+                        </p>
+                      )}
                     </div>
                   </div>
 
@@ -383,19 +398,22 @@ export default function RegistryPage() {
                       </p>
                     </div>
 
-                    <div className="
-                      bg-green-50
+                    <div className={`
                       rounded-xl
                       p-4
                       border
-                      border-green-200
-                    ">
-                      <p className="text-green-700 text-xs mb-1">
+                      ${
+                        isFirstUnionCitizen
+                          ? "bg-[#FFF7D6] border-[#C9A646]"
+                          : "bg-green-50 border-green-200"
+                      }
+                    `}>
+                      <p className={`${isFirstUnionCitizen ? "text-[#7A5C12]" : "text-green-700"} text-xs mb-1`}>
                         Статус
                       </p>
 
-                      <p className="font-black text-green-800 text-lg">
-                        🟢 Одобрено
+                      <p className={`${isFirstUnionCitizen ? "text-[#7A5C12]" : "text-green-800"} font-black text-lg`}>
+                        {isFirstUnionCitizen ? `👑 ${displayStatus}` : "🟢 Одобрено"}
                       </p>
                     </div>
                   </div>

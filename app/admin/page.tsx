@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase";
+import { FIRST_UNION_TITLE, isFirstUnionNumber } from "@/lib/first-union";
 
 type Application = {
   id: number;
@@ -292,11 +293,13 @@ async function fetchCitizens() {
     const fullName = citizen.full_name || "";
     const country = citizen.country || "";
     const number = citizen.citizen_number || "";
+    const displayStatus = isFirstUnionNumber(number) ? FIRST_UNION_TITLE : "Активный ничегошка";
 
     return (
       fullName.toLowerCase().includes(value) ||
       country.toLowerCase().includes(value) ||
-      number.toLowerCase().includes(value)
+      number.toLowerCase().includes(value) ||
+      displayStatus.toLowerCase().includes(value)
     );
   });
 }, [citizens, search]);
@@ -613,6 +616,7 @@ async function fetchCitizens() {
               <div className="space-y-6">
                 {visibleApplications.map((app) => {
                   const answers = parseAnswers(app.answers);
+                  const isFirstUnionApplication = isFirstUnionNumber(app.application_number);
 
                   return (
                     <div
@@ -680,6 +684,12 @@ async function fetchCitizens() {
                             <h2 className="text-3xl font-black mb-3">
                               {safeText(app.full_name, "Без имени")}
                             </h2>
+
+                            {isFirstUnionApplication && (
+                              <p className="mb-3 inline-flex rounded-full border border-[#C9A646] bg-[#FFF7D6] px-4 py-2 text-sm font-black text-[#7A5C12]">
+                                👑 {FIRST_UNION_TITLE}
+                              </p>
+                            )}
 
                             <div className="space-y-2 text-gray-700">
                               <p>
@@ -888,20 +898,25 @@ async function fetchCitizens() {
               ">
                 {visibleCitizens.map((citizen, index) => {
                   const verifyLink = getVerifyLink(citizen.citizen_number);
+                  const isFirstUnionCitizen = isFirstUnionNumber(citizen.citizen_number);
+                  const displayStatus = isFirstUnionCitizen ? FIRST_UNION_TITLE : "Активный ничегошка";
 
                   return (
                     <div
                       key={`${citizen.id}-${citizen.citizen_number}-${index}`}
-                      className="
-                        bg-white
+                      className={`
                         p-6
                         rounded-3xl
                         border
-                        border-gray-200
                         shadow-md
                         hover:shadow-xl
                         transition
-                      "
+                        ${
+                          isFirstUnionCitizen
+                            ? "bg-gradient-to-br from-white via-[#FFF7D6] to-[#F3E4A3] border-[#C9A646]"
+                            : "bg-white border-gray-200"
+                        }
+                      `}
                     >
                       <div className="flex items-center gap-4 mb-5">
                         {citizen.photo_url ? (
@@ -946,6 +961,12 @@ async function fetchCitizens() {
                           <h3 className="text-2xl font-black">
                             {safeText(citizen.full_name, "Без имени")}
                           </h3>
+
+                          {isFirstUnionCitizen && (
+                            <p className="mt-2 inline-flex rounded-full border border-[#C9A646] bg-[#FFF7D6] px-3 py-1 text-xs font-black text-[#7A5C12]">
+                              👑 Первый Союз
+                            </p>
+                          )}
                         </div>
                       </div>
 
@@ -953,8 +974,8 @@ async function fetchCitizens() {
                         🌍 {safeText(citizen.country)}
                       </p>
 
-                      <p className="mt-3 font-black text-green-700">
-                        🟢 Активен
+                      <p className={`mt-3 font-black ${isFirstUnionCitizen ? "text-[#7A5C12]" : "text-green-700"}`}>
+                        {isFirstUnionCitizen ? `👑 ${displayStatus}` : "🟢 Активен"}
                       </p>
 
                       <p className="mt-3 text-sm text-gray-500">
@@ -1109,6 +1130,12 @@ async function fetchCitizens() {
                     `}>
                       {statusLabel(verifiedApplication.status)}
                     </p>
+
+                    {isFirstUnionNumber(verifiedApplication.application_number) && (
+                      <p className="mb-4 inline-flex rounded-full border border-[#C9A646] bg-[#FFF7D6] px-4 py-2 text-sm font-black text-[#7A5C12]">
+                        👑 {FIRST_UNION_TITLE}
+                      </p>
+                    )}
 
                     <h2 className="text-4xl font-black mb-3">
                       {safeText(verifiedApplication.full_name, "Без имени")}

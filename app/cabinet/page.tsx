@@ -5,6 +5,7 @@ import { toPng } from "html-to-image";
 import jsPDF from "jspdf";
 import { supabase } from "@/lib/supabase";
 import { QRCodeSVG } from "qrcode.react";
+import { FIRST_UNION_TITLE, getCitizenDisplayStatus, isFirstUnionNumber } from "@/lib/first-union";
 
 type Application = {
   id: number;
@@ -215,6 +216,8 @@ export default function CabinetPage() {
   : passportNumber;
 
     const photoUrl = application.photo_url || "";
+    const isFirstUnionCitizen = isFirstUnionNumber(passportNumber);
+    const citizenDisplayStatus = getCitizenDisplayStatus(passportNumber);
 
     const initials = application.full_name
       .split(" ")
@@ -254,6 +257,32 @@ export default function CabinetPage() {
           ">
             Личный кабинет Ничегонии
           </h1>
+
+          {isFirstUnionCitizen && (
+            <div className="
+              mb-6
+              rounded-3xl
+              border-2
+              border-[#C9A646]
+              bg-gradient-to-br
+              from-[#FFF7D6]
+              via-[#F6E7A9]
+              to-[#E7C85D]
+              p-5
+              text-center
+              shadow-xl
+            ">
+              <p className="text-xs uppercase tracking-[0.3em] text-[#7A5C12] font-black mb-2">
+                Почётный статус
+              </p>
+              <p className="text-2xl sm:text-3xl font-black text-[#111111]">
+                👑 {FIRST_UNION_TITLE}
+              </p>
+              <p className="mt-2 text-sm font-semibold text-[#6D5518]">
+                Один из первых десяти граждан Федеральной Республики Ничегония.
+              </p>
+            </div>
+          )}
 
           <div className="space-y-4 text-base sm:text-lg text-[#111111]">
             <div className="
@@ -304,6 +333,26 @@ export default function CabinetPage() {
 
               <p className="font-black text-[#111111]">
                 {passportNumber}
+              </p>
+            </div>
+
+            <div className={`
+              rounded-2xl
+              p-4
+              sm:p-5
+              border
+              ${
+                isFirstUnionCitizen
+                  ? "bg-[#FFF7D6] border-[#C9A646]"
+                  : "bg-[#F7F6F3] border-gray-200"
+              }
+            `}>
+              <p className={`text-sm mb-1 ${isFirstUnionCitizen ? "text-[#7A5C12]" : "text-gray-500"}`}>
+                Почётный статус
+              </p>
+
+              <p className={`font-black ${isFirstUnionCitizen ? "text-[#7A5C12]" : "text-[#111111]"}`}>
+                {isFirstUnionCitizen ? `👑 ${citizenDisplayStatus}` : citizenDisplayStatus}
               </p>
             </div>
 
@@ -685,8 +734,9 @@ export default function CabinetPage() {
                         </p>
 
                         <p className="text-base sm:text-lg font-semibold text-[#111111]">
-                          Настоящий документ подтверждает статус гражданина
-                          Федеральной Республики Ничегония.
+                          {isFirstUnionCitizen
+                            ? "Настоящий документ подтверждает почётный статус первопроходца Федеральной Республики Ничегония."
+                            : "Настоящий документ подтверждает статус гражданина Федеральной Республики Ничегония."}
                         </p>
                       </div>
                     </div>
@@ -712,7 +762,7 @@ export default function CabinetPage() {
                           Гражданство
                         </p>
                         <p className="text-xl sm:text-2xl font-black text-[#111111]">
-                          Ничегошка
+                          {isFirstUnionCitizen ? FIRST_UNION_TITLE : "Ничегошка"}
                         </p>
                       </div>
 
@@ -747,8 +797,8 @@ export default function CabinetPage() {
                         <p className="text-xs uppercase text-gray-500 font-bold mb-1">
                           Статус
                         </p>
-                        <p className="text-xl sm:text-2xl font-black text-green-700">
-                          Активный ничегошка
+                        <p className={`text-xl sm:text-2xl font-black ${isFirstUnionCitizen ? "text-[#7A5C12]" : "text-green-700"}`}>
+                          {isFirstUnionCitizen ? `👑 ${FIRST_UNION_TITLE}` : "Активный ничегошка"}
                         </p>
                       </div>
                     </div>
@@ -790,7 +840,7 @@ export default function CabinetPage() {
                           uppercase
                           text-xl
                         ">
-                          Одобрено
+                          {isFirstUnionCitizen ? "Первый Союз" : "Одобрено"}
                         </div>
                       </div>
                     </div>
@@ -879,6 +929,7 @@ export default function CabinetPage() {
                         <p>✓ Может пользоваться Ничегометром</p>
                         <p>✓ Может откладывать дела на потом</p>
                         <p>✓ Считается ничегошкой</p>
+                        {isFirstUnionCitizen && <p>✓ Внесён в список Ничегошек Первого Союза</p>}
                       </div>
                     </div>
                   </div>

@@ -1,6 +1,7 @@
 "use client";
 
 import { forwardRef } from "react";
+import { FIRST_UNION_TITLE, isFirstUnionNumber } from "@/lib/first-union";
 
 type Application = {
   full_name: string;
@@ -32,6 +33,7 @@ const FullPassport = forwardRef<HTMLDivElement, FullPassportProps>(
 
     const photoUrl = application.photo_url ?? "";
     const passportPrefix = passportNumber.split("-")[0] || "НЧ";
+    const isFirstUnionCitizen = isFirstUnionNumber(passportNumber);
 
     return (
       <div ref={ref} className="w-full bg-[#111111] p-4 rounded-[36px] text-[#111111]">
@@ -135,6 +137,17 @@ const FullPassport = forwardRef<HTMLDivElement, FullPassportProps>(
                 Личное дело
               </h3>
 
+              {isFirstUnionCitizen && (
+                <div className="mb-8 rounded-2xl border-2 border-[#C9A646] bg-[#FFF7D6] p-5 text-center shadow-lg">
+                  <p className="text-xs uppercase tracking-[0.3em] text-[#7A5C12] font-black mb-2">
+                    Почётный статус
+                  </p>
+                  <p className="text-2xl font-black text-[#111111]">
+                    👑 {FIRST_UNION_TITLE}
+                  </p>
+                </div>
+              )}
+
               <div className="grid grid-cols-[1fr_170px] gap-8">
                 <div className="space-y-6">
                   <div>
@@ -149,7 +162,7 @@ const FullPassport = forwardRef<HTMLDivElement, FullPassportProps>(
 
                   <div>
                     <p className="text-xs uppercase text-gray-500 font-bold">Гражданство</p>
-                    <p className="text-2xl font-black">Ничегошка</p>
+                    <p className="text-2xl font-black">{isFirstUnionCitizen ? FIRST_UNION_TITLE : "Ничегошка"}</p>
                   </div>
 
                   <div>
@@ -159,7 +172,9 @@ const FullPassport = forwardRef<HTMLDivElement, FullPassportProps>(
 
                   <div>
                     <p className="text-xs uppercase text-gray-500 font-bold">Статус</p>
-                    <p className="text-2xl font-black text-green-700">Активный ничегошка</p>
+                    <p className={`text-2xl font-black ${isFirstUnionCitizen ? "text-[#7A5C12]" : "text-green-700"}`}>
+                      {isFirstUnionCitizen ? `👑 ${FIRST_UNION_TITLE}` : "Активный ничегошка"}
+                    </p>
                   </div>
                 </div>
 
@@ -233,6 +248,7 @@ const FullPassport = forwardRef<HTMLDivElement, FullPassportProps>(
                 <p>✓ Может пользоваться Ничегометром</p>
                 <p>✓ Считается ничегошкой на территории Ничегонии</p>
                 <p>✓ Разрешено откладывать дела на потом</p>
+                {isFirstUnionCitizen && <p>✓ Внесён в список Ничегошек Первого Союза</p>}
               </div>
 
               <div className="flex items-center justify-center">

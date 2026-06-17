@@ -1,8 +1,10 @@
 import { supabaseAdmin } from "@/lib/supabase-admin";
 
-export const FIRST_CONVOCATION_TITLE = "Ничегошка Первого Созыва";
-export const FIRST_CONVOCATION_LIMIT = 10;
-export const FIRST_CONVOCATION_NUMBER_PREFIX = "ПС";
+import { FIRST_UNION_LIMIT, FIRST_UNION_PREFIX, FIRST_UNION_TITLE } from "@/lib/first-union";
+
+export const FIRST_CONVOCATION_TITLE = FIRST_UNION_TITLE;
+export const FIRST_CONVOCATION_LIMIT = FIRST_UNION_LIMIT;
+export const FIRST_CONVOCATION_NUMBER_PREFIX = FIRST_UNION_PREFIX;
 export const DEFAULT_CITIZEN_NUMBER_PREFIX = "НЧ";
 
 type ApplicationForCitizen = {
