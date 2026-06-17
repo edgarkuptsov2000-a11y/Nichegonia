@@ -12,11 +12,11 @@ export async function POST(req: Request) {
   } = body;
 
   await supabaseAdmin
-    .from("applications")
-    .update({
-      status: "Одобрено"
-    })
-    .eq("id", id);
+  .from("applications")
+  .update({
+    status: "Одобрено"
+  })
+  .eq("id", id);
 
   await supabaseAdmin
     .from("admin_logs")
@@ -28,6 +28,22 @@ export async function POST(req: Request) {
         full_name
       }
     ]);
+
+    const { data: lastCitizen } =
+  await supabaseAdmin
+    .from("applications")
+    .select("citizen_number")
+    .order("citizen_number", {
+      ascending: false,
+    })
+    .limit(1)
+    .single();
+
+const nextCitizenNumber =
+  (lastCitizen?.citizen_number || 0) + 1;
+
+const formattedCitizenNumber =
+  `НЧ-${String(nextCitizenNumber).padStart(6, "0")}`;
 
   await supabaseAdmin
     .from("citizens")

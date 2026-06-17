@@ -23,6 +23,7 @@ export default function CabinetPage() {
   const [checkingSavedLogin, setCheckingSavedLogin] = useState(true);
   const [showPassport, setShowPassport] = useState(false);
   const [origin, setOrigin] = useState("");
+  const [rememberMe, setRememberMe] = useState(false);
 
   const passportRef = useRef<HTMLDivElement | null>(null);
 
@@ -70,8 +71,20 @@ export default function CabinetPage() {
       return;
     }
 
-    localStorage.setItem("application_number", finalApplicationNumber);
-    localStorage.setItem("access_code", finalAccessCode);
+    if (rememberMe) {
+  localStorage.setItem(
+    "application_number",
+    finalApplicationNumber
+  );
+
+  localStorage.setItem(
+    "access_code",
+    finalAccessCode
+  );
+} else {
+  localStorage.removeItem("application_number");
+  localStorage.removeItem("access_code");
+}
 
     setApplication(data);
     setCheckingSavedLogin(false);
@@ -967,6 +980,23 @@ export default function CabinetPage() {
             focus:border-[#111111]
           "
         />
+
+        <div className="flex items-center gap-3 mb-6">
+  <input
+    type="checkbox"
+    id="remember"
+    checked={rememberMe}
+    onChange={(e) => setRememberMe(e.target.checked)}
+    className="w-5 h-5"
+  />
+
+  <label
+    htmlFor="remember"
+    className="text-[#111111] font-medium"
+  >
+    Запомнить меня
+  </label>
+</div>
 
         {error && (
           <div className="
