@@ -64,6 +64,7 @@ function parseAnswers(answers?: string | null) {
 export default function AdminPage() {
   const [applications, setApplications] = useState<Application[]>([]);
   const [logs, setLogs] = useState<AdminLog[]>([]);
+  const [citizens, setCitizens] = useState<any[]>([]);
   const [mainTab, setMainTab] = useState<MainTab>("overview");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("pending");
   const [openedAnswers, setOpenedAnswers] = useState<number | null>(null);
@@ -80,11 +81,26 @@ export default function AdminPage() {
   window.location.href = "/admin/login";
 }
 
+async function fetchCitizens() {
+  const { data, error } = await supabase
+    .from("citizens")
+    .select("*")
+    .order("id", { ascending: false });
+
+  if (error) {
+    console.log("CITIZENS ERROR:", error);
+    setCitizens([]);
+  } else {
+    setCitizens(data || []);
+  }
+}
+
   useEffect(() => {
-    setOrigin(window.location.origin);
-    fetchData();
-    fetchLogs();
-  }, []);
+  setOrigin(window.location.origin);
+  fetchData();
+  fetchLogs();
+  fetchCitizens();
+}, []);
 
   async function fetchData() {
     setLoading(true);
@@ -197,6 +213,7 @@ if (insertError) {
 
     await fetchData();
     await fetchLogs();
+    await fetchCitizens();
   }
 
   function getVerifyLink(applicationNumber?: string | null) {
@@ -255,22 +272,22 @@ if (insertError) {
   }, [applications, statusFilter, search]);
 
   const visibleCitizens = useMemo(() => {
-    const value = search.trim().toLowerCase();
+  const value = search.trim().toLowerCase();
 
-    return approvedApplications.filter((app) => {
-      if (!value) return true;
+  return citizens.filter((citizen) => {
+    if (!value) return true;
 
-      const fullName = app.full_name || "";
-      const country = app.country || "";
-      const number = app.application_number || "";
+    const fullName = citizen.full_name || "";
+    const country = citizen.country || "";
+    const number = citizen.citizen_number || "";
 
-      return (
-        fullName.toLowerCase().includes(value) ||
-        country.toLowerCase().includes(value) ||
-        number.toLowerCase().includes(value)
-      );
-    });
-  }, [approvedApplications, search]);
+    return (
+      fullName.toLowerCase().includes(value) ||
+      country.toLowerCase().includes(value) ||
+      number.toLowerCase().includes(value)
+    );
+  });
+}, [citizens, search]);
 
   const verifiedApplication = useMemo(() => {
     const value = verifyNumber.trim().toLowerCase();
@@ -829,11 +846,11 @@ if (insertError) {
                 gap-6
               ">
                 {visibleCitizens.map((citizen, index) => {
-                  const verifyLink = getVerifyLink(citizen.application_number);
+                  const verifyLink = getVerifyLink(citizen.citizen_number);
 
                   return (
                     <div
-                      key={`${citizen.id}-${citizen.application_number}-${index}`}
+                      key={`${citizen.id}-${citizen.citizen_number}-${index}`}
                       className="
                         bg-white
                         p-6
@@ -882,7 +899,7 @@ if (insertError) {
 
                         <div>
                           <p className="text-gray-500 mb-1">
-                            {safeText(citizen.application_number, "Без номера")}
+                            {safeText(citizen.citizen_number, "Без номера")}
                           </p>
 
                           <h3 className="text-2xl font-black">
@@ -904,9 +921,9 @@ if (insertError) {
                       </p>
 
                       <div className="flex flex-col gap-3 mt-5">
-                        {citizen.application_number && (
+                        {citizen.citizen_number && (
                           <a
-                            href={`/verify?number=${encodeURIComponent(citizen.application_number)}`}
+                            href={`/verify?number=${encodeURIComponent(citizen.citizen_number)}`}
                             className="
                               bg-[#111111]
                               text-white
@@ -922,7 +939,7 @@ if (insertError) {
                         )}
 
                         <button
-                          onClick={() => copyVerifyLink(citizen.application_number)}
+                          onClick={() => copyVerifyLink(citizen.citizen_number)}
                           className="
                             bg-blue-50
                             text-blue-700
