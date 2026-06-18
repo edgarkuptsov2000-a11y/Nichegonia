@@ -248,7 +248,7 @@ const FullPassport = forwardRef<HTMLDivElement, FullPassportProps>(
                 <p>✓ Может пользоваться Ничегометром</p>
                 <p>✓ Считается ничегошкой на территории Ничегонии</p>
                 <p>✓ Разрешено откладывать дела на потом</p>
-                {isFirstUnionCitizen && <p>✓ Внесён в список Ничегошек Первого Союза</p>}
+                {isFirstUnionCitizen && <p>✓ Внесён в список Ничегошек Первого Созыва</p>}
               </div>
 
               <div className="flex items-center justify-center">

@@ -152,7 +152,7 @@ export default function FirstUnionPage() {
             </p>
 
             <h1 className="text-4xl sm:text-6xl font-black tracking-tight mb-5">
-              Ничегошки Первого Союза
+              Ничегошки Первого Созыва
             </h1>
 
             <p className="max-w-2xl mx-auto text-base sm:text-lg text-[#5F4A17] font-semibold leading-relaxed">
