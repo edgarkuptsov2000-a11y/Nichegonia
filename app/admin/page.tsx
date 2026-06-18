@@ -964,7 +964,7 @@ async function fetchCitizens() {
 
                           {isFirstUnionCitizen && (
                             <p className="mt-2 inline-flex rounded-full border border-[#C9A646] bg-[#FFF7D6] px-3 py-1 text-xs font-black text-[#7A5C12]">
-                              👑 Первый Союз
+                              👑 Первый Созыв
                             </p>
                           )}
                         </div>

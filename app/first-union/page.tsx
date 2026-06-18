@@ -179,7 +179,7 @@ export default function FirstUnionPage() {
           <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-5">
             <div className="flex-1">
               <label className="block mb-2 font-black text-gray-700">
-                Поиск по Первому Союзу
+                Поиск по Первому Созыву
               </label>
 
               <input
@@ -223,14 +223,14 @@ export default function FirstUnionPage() {
 
         {loading && (
           <div className="bg-white rounded-3xl shadow-xl border border-gray-200 p-10 text-center">
-            <p className="text-2xl font-black">Загружаем Первый Союз...</p>
+            <p className="text-2xl font-black">Загружаем Первый Созыв...</p>
           </div>
         )}
 
         {!loading && filteredCitizens.length === 0 && (
           <div className="bg-white rounded-3xl shadow-xl border border-gray-200 p-10 text-center">
             <div className="text-6xl mb-4">👑</div>
-            <h2 className="text-3xl font-black mb-3">Первый Союз пока пуст</h2>
+            <h2 className="text-3xl font-black mb-3">Первый Созыв пока пуст</h2>
             <p className="text-gray-600">Пользователи со статусом ПС не найдены.</p>
           </div>
         )}
