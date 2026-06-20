@@ -1,6 +1,6 @@
 export const FIRST_UNION_TITLE = "Ничегошка Первого Созыва";
 export const FIRST_UNION_PREFIX = "ПС";
-export const FIRST_UNION_LIMIT = 10;
+export const FIRST_UNION_LIMIT = 15;
 
 export function normalizeCitizenNumber(value?: string | null) {
   return String(value || "").trim().toUpperCase();
