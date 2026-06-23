@@ -99,81 +99,67 @@ export default function CabinetPage() {
     setCheckingSavedLogin(false);
   }
 
-  async function downloadPassportImage() {
-    if (!passportRef.current || !application) {
-      return;
-    }
-
-    try {
-      const dataUrl = await toPng(passportRef.current, {
-        cacheBust: true,
-        pixelRatio: 2,
-        backgroundColor: "#EFE8D8"
-      });
-
-      const link = document.createElement("a");
-      link.download = `passport-${application.passport_number || application.application_number}.png`;
-      link.href = dataUrl;
-      link.click();
-    } catch (error) {
-      console.log("PASSPORT DOWNLOAD ERROR:", error);
-      alert("Не удалось скачать паспорт. Попробуйте ещё раз.");
-    }
+async function downloadPassportImage() {
+  if (!passportRef.current || !application) {
+    return;
   }
 
-  async function downloadPassportPdf() {
-    if (!passportRef.current || !application) {
-      return;
-    }
+  try {
+    const dataUrl = await toPng(passportRef.current, {
+      cacheBust: true,
+      pixelRatio: 3,
+      canvasWidth: 1800,
+      canvasHeight: 1200,
+      backgroundColor: "#EFE8D8",
+    });
 
-    try {
-      const dataUrl = await toPng(passportRef.current, {
-        cacheBust: true,
-        pixelRatio: 2,
-        backgroundColor: "#EFE8D8"
-      });
+    const link = document.createElement("a");
 
-      const image = new Image();
-      image.src = dataUrl;
+    link.download = `passport-${
+      application.passport_number ||
+      application.application_number
+    }.png`;
 
-      await new Promise<void>((resolve, reject) => {
-        image.onload = () => resolve();
-        image.onerror = () => reject();
-      });
-
-      const pdf = new jsPDF({
-        orientation: "landscape",
-        unit: "mm",
-        format: "a4"
-      });
-
-      const pageWidth = pdf.internal.pageSize.getWidth();
-      const pageHeight = pdf.internal.pageSize.getHeight();
-
-      const margin = 10;
-      const maxWidth = pageWidth - margin * 2;
-      const maxHeight = pageHeight - margin * 2;
-
-      const imageRatio = image.width / image.height;
-
-      let renderWidth = maxWidth;
-      let renderHeight = renderWidth / imageRatio;
-
-      if (renderHeight > maxHeight) {
-        renderHeight = maxHeight;
-        renderWidth = renderHeight * imageRatio;
-      }
-
-      const x = (pageWidth - renderWidth) / 2;
-      const y = (pageHeight - renderHeight) / 2;
-
-      pdf.addImage(dataUrl, "PNG", x, y, renderWidth, renderHeight);
-      pdf.save(`passport-${application.passport_number || application.application_number}.pdf`);
-    } catch (error) {
-      console.log("PASSPORT PDF ERROR:", error);
-      alert("Не удалось скачать паспорт PDF. Попробуйте ещё раз.");
-    }
+    link.href = dataUrl;
+    link.click();
+  } catch (error) {
+    console.log("PASSPORT DOWNLOAD ERROR:", error);
+    alert("Не удалось скачать паспорт.");
   }
+}
+  
+async function downloadPassportPdf() {
+  if (!passportRef.current || !application) {
+    return;
+  }
+
+  try {
+    const dataUrl = await toPng(passportRef.current, {
+      cacheBust: true,
+      pixelRatio: 3,
+      backgroundColor: "#EFE8D8",
+    });
+
+    const pdf = new jsPDF({
+      orientation: "landscape",
+      unit: "mm",
+      format: "a4",
+    });
+
+    pdf.addImage(dataUrl, "PNG", 10, 10, 277, 190);
+
+    pdf.save(
+      `passport-${
+        application.passport_number ||
+        application.application_number
+      }.pdf`
+    );
+  } catch (error) {
+    console.log(error);
+    alert("Не удалось скачать PDF.");
+  }
+}
+
 
   if (checkingSavedLogin) {
     return (
@@ -513,18 +499,18 @@ export default function CabinetPage() {
               </div>
 
               <div
-                ref={passportRef}
-                className="
-                  overflow-hidden
-                  rounded-2xl
-                  sm:rounded-[32px]
-                  border-2
-                  border-[#C9A646]
-                  bg-[#EFE8D8]
-                  shadow-2xl
-                  text-[#111111]
-                "
-              >
+  ref={passportRef}
+  className="
+    overflow-hidden
+    rounded-2xl
+    sm:rounded-[32px]
+    border-2
+    border-[#C9A646]
+    bg-[#EFE8D8]
+    w-[1200px]
+    max-w-none
+  "
+>
                 <div className="
                   grid
                   grid-cols-1
