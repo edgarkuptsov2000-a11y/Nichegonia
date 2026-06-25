@@ -6,6 +6,8 @@ import jsPDF from "jspdf";
 import { supabase } from "@/lib/supabase";
 import { QRCodeSVG } from "qrcode.react";
 import { FIRST_UNION_TITLE, getCitizenDisplayStatus, isFirstUnionNumber } from "@/lib/first-union";
+import PassportBook from "@/components/PassportBook";
+
 
 type Application = {
   id: number;
@@ -29,6 +31,11 @@ export default function CabinetPage() {
 
   const passportRef = useRef<HTMLDivElement | null>(null);
 
+  const passportBookRef =
+  useRef<HTMLDivElement>(null);
+  
+
+  
   useEffect(() => {
     setOrigin(window.location.origin);
     setCheckingSavedLogin(false);
@@ -91,7 +98,6 @@ export default function CabinetPage() {
 
       passportNumber = citizen?.citizen_number || null;
     }
-
     setApplication({
       ...data,
       passport_number: passportNumber || data.application_number
@@ -116,7 +122,7 @@ async function downloadPassportImage() {
     const link = document.createElement("a");
 
     link.download = `passport-${
-      application.passport_number ||
+      application?.passport_number ||
       application.application_number
     }.png`;
 
@@ -127,6 +133,39 @@ async function downloadPassportImage() {
     alert("Не удалось скачать паспорт.");
   }
 }
+
+async function downloadPassportBook() {
+  if (!passportBookRef.current) return;
+
+  const dataUrl =
+    await toPng(
+      passportBookRef.current,
+      {
+        pixelRatio: 3,
+        cacheBust: true
+      }
+    );
+
+  const pdf = new jsPDF({
+    orientation: "landscape",
+    unit: "px",
+    format: [1600, 900]
+  });
+
+  pdf.addImage(
+    dataUrl,
+    "PNG",
+    0,
+    0,
+    1600,
+    900
+  );
+
+  pdf.save(
+    `passport-${application?.passport_number || application?.application_number}.pdf`
+  );
+}
+
   
 async function downloadPassportPdf() {
   if (!passportRef.current || !application) {
@@ -150,7 +189,7 @@ async function downloadPassportPdf() {
 
     pdf.save(
       `passport-${
-        application.passport_number ||
+        application?.passport_number ||
         application.application_number
       }.pdf`
     );
@@ -191,7 +230,7 @@ async function downloadPassportPdf() {
   }
 
   if (application) {
-    const passportNumber = application.passport_number || application.application_number;
+    const passportNumber = application?.passport_number|| application?.application_number;
 
     const issueDate = application.approved_at
       ? new Date(application.approved_at).toLocaleDateString("ru-RU")
@@ -455,6 +494,15 @@ async function downloadPassportPdf() {
                 >
                   PNG
                 </button>
+
+                <div ref={passportBookRef}>
+  <PassportBook
+  application={application}
+  passportNumber={passportNumber}
+  issueDate={issueDate}
+  isFirstUnionCitizen={isFirstUnionCitizen}
+/>
+</div>
 
                 <button
                   onClick={downloadPassportPdf}
