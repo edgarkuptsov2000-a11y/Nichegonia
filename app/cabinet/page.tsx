@@ -2,12 +2,9 @@
 
 import { useEffect, useRef, useState } from "react";
 import { toPng } from "html-to-image";
-import jsPDF from "jspdf";
 import { supabase } from "@/lib/supabase";
-import { QRCodeSVG } from "qrcode.react";
 import { FIRST_UNION_TITLE, getCitizenDisplayStatus, isFirstUnionNumber } from "@/lib/first-union";
-import PassportBook from "@/components/PassportBook";
-
+import PassportBook from "@/components/PassportBook/index";
 
 type Application = {
   id: number;
@@ -29,13 +26,8 @@ export default function CabinetPage() {
   const [showPassport, setShowPassport] = useState(false);
   const [origin, setOrigin] = useState("");
 
-  const passportRef = useRef<HTMLDivElement | null>(null);
+  const passportBookRef = useRef<HTMLDivElement>(null);
 
-  const passportBookRef =
-  useRef<HTMLDivElement>(null);
-  
-
-  
   useEffect(() => {
     setOrigin(window.location.origin);
     setCheckingSavedLogin(false);
@@ -53,35 +45,12 @@ export default function CabinetPage() {
       return;
     }
 
-    let { data, error } = await supabase
+    const { data, error } = await supabase
       .from("applications")
       .select("*")
       .eq("application_number", finalApplicationNumber)
       .eq("access_code", finalAccessCode)
       .maybeSingle();
-
-    let passportNumber: string | null = null;
-
-    if (error || !data) {
-      const { data: citizen } = await supabase
-        .from("citizens")
-        .select("application_id, citizen_number")
-        .eq("citizen_number", finalApplicationNumber)
-        .maybeSingle();
-
-      if (citizen?.application_id) {
-        const applicationResult = await supabase
-          .from("applications")
-          .select("*")
-          .eq("id", citizen.application_id)
-          .eq("access_code", finalAccessCode)
-          .maybeSingle();
-
-        data = applicationResult.data;
-        error = applicationResult.error;
-        passportNumber = citizen.citizen_number;
-      }
-    }
 
     if (error || !data) {
       setError("Неверный номер заявки или код доступа.");
@@ -89,887 +58,139 @@ export default function CabinetPage() {
       return;
     }
 
-    if (!passportNumber && data.status === "Одобрено") {
-      const { data: citizen } = await supabase
-        .from("citizens")
-        .select("citizen_number")
-        .eq("application_id", data.id)
-        .maybeSingle();
+    let passportNumber = data.passport_number || data.application_number;
 
-      passportNumber = citizen?.citizen_number || null;
-    }
     setApplication({
       ...data,
-      passport_number: passportNumber || data.application_number
+      passport_number: passportNumber,
     });
+
     setCheckingSavedLogin(false);
   }
 
-async function downloadPassportImage() {
-  if (!passportRef.current || !application) {
-    return;
-  }
+  async function downloadPassportBook() {
+    if (!passportBookRef.current || !application) return;
 
-  try {
-    const dataUrl = await toPng(passportRef.current, {
-      cacheBust: true,
-      pixelRatio: 3,
-      canvasWidth: 1800,
-      canvasHeight: 1200,
-      backgroundColor: "#EFE8D8",
-    });
-
-    const link = document.createElement("a");
-
-    link.download = `passport-${
-      application?.passport_number ||
-      application.application_number
-    }.png`;
-
-    link.href = dataUrl;
-    link.click();
-  } catch (error) {
-    console.log("PASSPORT DOWNLOAD ERROR:", error);
-    alert("Не удалось скачать паспорт.");
-  }
-}
-
-async function downloadPassportBook() {
-  if (!passportBookRef.current) return;
-
-  const dataUrl =
-    await toPng(
-      passportBookRef.current,
-      {
+    try {
+      const dataUrl = await toPng(passportBookRef.current, {
         pixelRatio: 3,
-        cacheBust: true
-      }
-    );
+        cacheBust: true,
+        backgroundColor: "#efe9df",
+      });
 
-  const pdf = new jsPDF({
-    orientation: "landscape",
-    unit: "px",
-    format: [1600, 900]
-  });
-
-  pdf.addImage(
-    dataUrl,
-    "PNG",
-    0,
-    0,
-    1600,
-    900
-  );
-
-  pdf.save(
-    `passport-${application?.passport_number || application?.application_number}.pdf`
-  );
-}
-
-  
-async function downloadPassportPdf() {
-  if (!passportRef.current || !application) {
-    return;
+      const link = document.createElement("a");
+      link.download = `passport-${application.passport_number || application.application_number}.png`;
+      link.href = dataUrl;
+      link.click();
+    } catch (e) {
+      console.error(e);
+      alert("Не удалось скачать паспорт.");
+    }
   }
-
-  try {
-    const dataUrl = await toPng(passportRef.current, {
-      cacheBust: true,
-      pixelRatio: 3,
-      backgroundColor: "#EFE8D8",
-    });
-
-    const pdf = new jsPDF({
-      orientation: "landscape",
-      unit: "mm",
-      format: "a4",
-    });
-
-    pdf.addImage(dataUrl, "PNG", 10, 10, 277, 190);
-
-    pdf.save(
-      `passport-${
-        application?.passport_number ||
-        application.application_number
-      }.pdf`
-    );
-  } catch (error) {
-    console.log(error);
-    alert("Не удалось скачать PDF.");
-  }
-}
-
 
   if (checkingSavedLogin) {
     return (
-      <main className="
-        min-h-[100dvh]
-        bg-[#F7F6F3]
-        flex
-        items-center
-        justify-center
-        px-4 sm:px-6
-        text-[#111111]
-      ">
-        <div className="
-          bg-white
-          rounded-3xl
-          shadow-2xl
-          p-5
-          sm:p-10
-          text-center
-          border
-          border-gray-200
-        ">
-          <p className="text-xl sm:text-2xl font-black text-[#111111]">
-            Загрузка личного кабинета...
-          </p>
-        </div>
+      <main className="min-h-[100dvh] flex items-center justify-center">
+        Загрузка...
       </main>
     );
   }
 
   if (application) {
-    const passportNumber = application?.passport_number|| application?.application_number;
+    const passportNumber =
+      application.passport_number || application.application_number;
 
     const issueDate = application.approved_at
       ? new Date(application.approved_at).toLocaleDateString("ru-RU")
       : "Не указана";
 
-      const verifyUrl = origin
-  ? `${origin}/verify?number=${encodeURIComponent(passportNumber)}`
-  : passportNumber;
+    const verifyUrl = origin
+      ? `${origin}/verify?number=${encodeURIComponent(passportNumber)}`
+      : passportNumber;
 
-    const photoUrl = application.photo_url || "";
     const isFirstUnionCitizen = isFirstUnionNumber(passportNumber);
     const citizenDisplayStatus = getCitizenDisplayStatus(passportNumber);
 
-    const initials = application.full_name
-      .split(" ")
-      .map((part) => part[0])
-      .join("")
-      .slice(0, 2)
-      .toUpperCase();
+    const nameParts = application.full_name.trim().split(/\s+/);
+
+const passport = {
+  surname: nameParts[0] || "",
+  givenName: nameParts.slice(1).join(" ") || "",
+
+  nationality: "НЕЧЕГОНИЯ",
+
+  country: application.country,
+
+  passportNumber,
+
+  issueDate,
+
+  photoUrl: application.photo_url || "",
+
+  qrCode: verifyUrl,
+
+  status: application.status,
+
+  citizenTitle: citizenDisplayStatus,
+
+  birthDate: "",
+  birthPlace: "",
+  sex: "",
+};
 
     return (
-      <main className="
-        min-h-[100dvh]
-        bg-[#F7F6F3]
-        flex
-        items-center
-        justify-center
-        px-4 sm:px-6
-        py-6 sm:py-10
-        text-[#111111]
-      ">
-        <div className="
-          bg-white
-          max-w-2xl
-          w-full
-          rounded-3xl
-          shadow-2xl
-          p-5
-          sm:p-10
-          border
-          border-gray-200
-        ">
-          <h1 className="
-            text-3xl sm:text-4xl
-            font-black
-            mb-8
-            text-center
-            text-[#111111]
-          ">
-            Личный кабинет Ничегонии
-          </h1>
+      <main className="min-h-[100dvh] flex flex-col items-center justify-center">
+        <div className="p-6 bg-white rounded-xl shadow-xl w-[420px]">
+          <h1 className="text-xl font-bold mb-4">Личный кабинет</h1>
 
-          {isFirstUnionCitizen && (
-            <div className="
-              mb-6
-              rounded-3xl
-              border-2
-              border-[#C9A646]
-              bg-gradient-to-br
-              from-[#FFF7D6]
-              via-[#F6E7A9]
-              to-[#E7C85D]
-              p-5
-              text-center
-              shadow-xl
-            ">
-              <p className="text-xs uppercase tracking-[0.3em] text-[#7A5C12] font-black mb-2">
-                Почётный статус
-              </p>
-              <p className="text-2xl sm:text-3xl font-black text-[#111111]">
-                👑 {FIRST_UNION_TITLE}
-              </p>
-              <p className="mt-2 text-sm font-semibold text-[#6D5518]">
-                Один из первых десяти граждан Федеральной Республики Ничегония.
-              </p>
-            </div>
-          )}
-
-          <div className="space-y-4 text-base sm:text-lg text-[#111111]">
-            <div className="
-              bg-[#F7F6F3]
-              rounded-2xl
-              p-4
-            sm:p-5
-              border
-              border-gray-200
-            ">
-              <p className="text-gray-500 text-sm mb-1">
-                Имя
-              </p>
-
-              <p className="font-bold text-[#111111]">
-                {application.full_name}
-              </p>
-            </div>
-
-            <div className="
-              bg-[#F7F6F3]
-              rounded-2xl
-              p-4
-            sm:p-5
-              border
-              border-gray-200
-            ">
-              <p className="text-gray-500 text-sm mb-1">
-                Страна
-              </p>
-
-              <p className="font-bold text-[#111111]">
-                {application.country}
-              </p>
-            </div>
-
-            <div className="
-              bg-[#F7F6F3]
-              rounded-2xl
-              p-4
-            sm:p-5
-              border
-              border-gray-200
-            ">
-              <p className="text-gray-500 text-sm mb-1">
-                Номер паспорта
-              </p>
-
-              <p className="font-black text-[#111111]">
-                {passportNumber}
-              </p>
-            </div>
-
-            <div className={`
-              rounded-2xl
-              p-4
-              sm:p-5
-              border
-              ${
-                isFirstUnionCitizen
-                  ? "bg-[#FFF7D6] border-[#C9A646]"
-                  : "bg-[#F7F6F3] border-gray-200"
-              }
-            `}>
-              <p className={`text-sm mb-1 ${isFirstUnionCitizen ? "text-[#7A5C12]" : "text-gray-500"}`}>
-                Почётный статус
-              </p>
-
-              <p className={`font-black ${isFirstUnionCitizen ? "text-[#7A5C12]" : "text-[#111111]"}`}>
-                {isFirstUnionCitizen ? `👑 ${citizenDisplayStatus}` : citizenDisplayStatus}
-              </p>
-            </div>
-
-            <div className="
-              bg-yellow-50
-              rounded-2xl
-              p-4
-            sm:p-5
-              border
-              border-yellow-200
-            ">
-              
-              <p className="text-yellow-700 text-sm mb-1">
-                Статус
-              </p>
-              
-
-              <p className="font-black text-yellow-800">
-                {application.status === "На рассмотрении" && "🟡 На рассмотрении"}
-                {application.status === "Одобрено" && "🟢 Одобрено"}
-                {application.status === "Отклонено" && "🔴 Отклонено"}
-              </p>
-            </div>
-          </div>
+          <p><b>Имя:</b> {application.full_name}</p>
+          <p><b>Страна:</b> {application.country}</p>
+          <p><b>Паспорт:</b> {passportNumber}</p>
+          <p><b>Статус:</b> {application.status}</p>
 
           {application.status === "Одобрено" && (
             <button
               onClick={() => setShowPassport(true)}
-              className="
-                w-full
-                mt-8
-                bg-[#111111]
-                text-white
-                py-4
-                rounded-xl
-                font-black
-                hover:opacity-90
-                transition
-              "
+              className="mt-4 w-full bg-black text-white p-3 rounded"
             >
-              Паспорт гражданина Ничегонии
+              Открыть паспорт
             </button>
           )}
 
           <button
-            onClick={() => {
-              setApplication(null);
-              setApplicationNumber("");
-              setAccessCode("");
-              setShowPassport(false);
-            }}
-            className="
-              w-full
-              mt-4
-              bg-[#111111]
-              text-white
-              py-4
-              rounded-xl
-              font-bold
-              hover:opacity-90
-              transition
-            "
+            onClick={() => setApplication(null)}
+            className="mt-2 w-full border p-3 rounded"
           >
             Выйти
           </button>
         </div>
 
         {showPassport && (
-          <div className="
-            fixed
-            inset-0
-            z-50
-            bg-black/70
-            backdrop-blur-sm
-            flex
-            items-center
-            justify-center
-            p-4
-          ">
-            <div className="
-              relative
-              w-full
-              max-w-6xl
-              max-h-[92dvh]
-              overflow-y-auto
-            ">
-              <div className="
-                sticky
-                top-0
-                z-20
-                mb-3
-                flex
-                justify-end
-                gap-2
-                sm:gap-3
-              ">
-                <button
-                  onClick={downloadPassportImage}
-                  className="
-                    h-10
-                    sm:h-12
-                    px-4
-                    sm:px-5
-                    text-sm
-                    sm:text-base
-                    rounded-full
-                    bg-white
-                    text-[#111111]
-                    font-black
-                    shadow-lg
-                    hover:bg-gray-100
-                    transition
-                  "
-                >
-                  PNG
-                </button>
+          <div className="fixed inset-0 bg-black/70 flex items-center justify-center">
+            <div className="relative bg-white p-6 rounded-xl">
 
-                <div ref={passportBookRef}>
-  <PassportBook
-  application={application}
-  passportNumber={passportNumber}
-  issueDate={issueDate}
-  isFirstUnionCitizen={isFirstUnionCitizen}
-/>
-</div>
+              <button
+                onClick={downloadPassportBook}
+                className="absolute -top-12 right-0 bg-white px-4 py-2 rounded"
+              >
+                Скачать
+              </button>
 
-                <button
-                  onClick={downloadPassportPdf}
-                  className="
-                    h-10
-                    sm:h-12
-                    px-4
-                    sm:px-5
-                    text-sm
-                    sm:text-base
-                    rounded-full
-                    bg-white
-                    text-[#111111]
-                    font-black
-                    shadow-lg
-                    hover:bg-gray-100
-                    transition
-                  "
-                >
-                  PDF
-                </button>
+              <button
+                onClick={() => setShowPassport(false)}
+                className="absolute -top-12 left-0 bg-white px-4 py-2 rounded"
+              >
+                Закрыть
+              </button>
 
-                <button
-                  onClick={() => setShowPassport(false)}
-                  className="
-                    w-10
-                    h-10
-                    sm:w-12
-                    sm:h-12
-                    rounded-full
-                    bg-white
-                    text-[#111111]
-                    font-black
-                    text-xl sm:text-2xl
-                    shadow-lg
-                    hover:bg-gray-100
-                    transition
-                  "
-                >
-                  ×
-                </button>
-              </div>
-
-              <div
-  ref={passportRef}
-  className="
-    overflow-hidden
-    rounded-2xl
-    sm:rounded-[32px]
-    border-2
-    border-[#C9A646]
-    bg-[#EFE8D8]
-    w-[1200px]
-    max-w-none
-  "
->
-                <div className="
-                  grid
-                  grid-cols-1
-                  lg:grid-cols-[0.8fr_1.2fr]
-                  min-h-0
-                  lg:min-h-[620px]
-                ">
-                  <div className="
-                    bg-[#111111]
-                    text-[#C9A646]
-                    p-4
-            sm:p-5
-          sm:p-10
-                    flex
-                    flex-col
-                    items-center
-                    justify-center
-                    text-center
-                    border-r
-                    border-[#C9A646]
-                  ">
-                    <p className="
-                      text-sm
-                      uppercase
-                      tracking-[0.35em]
-                      mb-6
-                      text-[#F5D77A]
-                    ">
-                      Федеральная Республика
-                    </p>
-
-                    <h2 className="
-                      text-3xl sm:text-5xl
-                      font-black
-                      tracking-[0.2em]
-                      mb-10
-                    ">
-                      НИЧЕГОНИЯ
-                    </h2>
-
-                    <div className="
-                      w-28
-                      h-28
-                      sm:w-44
-                      sm:h-44
-                      rounded-full
-                      border-4
-                      border-[#C9A646]
-                      flex
-                      items-center
-                      justify-center
-                      text-5xl sm:text-7xl
-                      font-black
-                      mb-10
-                      shadow-2xl
-                    ">
-                      Н
-                    </div>
-
-                    <p className="
-                      text-3xl sm:text-5xl
-                      font-black
-                      tracking-[0.2em]
-                      mb-4
-                    ">
-                      ПАСПОРТ
-                    </p>
-
-                    <p className="
-                      text-base sm:text-lg
-                      tracking-[0.25em]
-                      uppercase
-                      text-[#F5D77A]
-                    ">
-                      гражданина Ничегонии
-                    </p>
-
-                    <div className="
-                      mt-10
-                      border
-                      border-[#C9A646]
-                      rounded-full
-                      px-4 sm:px-6
-                      py-2
-                      text-sm
-                      tracking-[0.2em]
-                    ">
-                      Ничего. Но стабильно.
-                    </div>
-                  </div>
-
-                  <div className="
-                    bg-[#F8F3E8]
-                    p-4
-            sm:p-5
-          sm:p-10
-                    relative
-                    overflow-hidden
-                  ">
-                    <div className="
-                      absolute
-                      right-10
-                      top-10
-                      hidden
-                      sm:block
-                      sm:text-[220px]
-                      leading-none
-                      font-black
-                      text-[#111111]
-                      opacity-5
-                      pointer-events-none
-                    ">
-                      Н
-                    </div>
-
-                    <div className="
-                      border-b
-                      border-[#D8C8A8]
-                      pb-6
-                      mb-8
-                    ">
-                      <p className="
-                        text-sm
-                        uppercase
-                        tracking-[0.35em]
-                        text-gray-500
-                        font-bold
-                        mb-3
-                      ">
-                        Паспорт гражданина
-                      </p>
-
-                      <h3 className="
-                        text-3xl sm:text-4xl
-                        font-black
-                        text-[#111111]
-                      ">
-                        Федерация Ничегонии
-                      </h3>
-                    </div>
-
-                    <div className="
-                      mb-8
-                      flex
-                      flex-col
-                      md:flex-row
-                      gap-8
-                      items-start
-                    ">
-                      <div>
-                        <p className="text-xs uppercase text-gray-500 font-bold mb-2">
-                          Фото гражданина
-                        </p>
-
-                        {photoUrl ? (
-  <img
-    src={photoUrl}
-    alt="Фото гражданина"
-    className="
-      w-[150px]
-      h-[200px]
-      sm:w-[170px]
-      sm:h-[230px]
-      rounded-xl
-      object-cover
-      object-center
-      border
-      border-[#D8C8A8]
-      bg-[#E8DFCF]
-      shadow-lg
-      flex-shrink-0
-    "
-  />
-) : (
-                          <div className="
-  w-[160px]
-  aspect-[3/4]
-  rounded-xl
-  object-cover
-  object-center
-  border
-  border-[#D8C8A8]
-">
-                            {initials}
-                          </div>
-                        )}
-                      </div>
-
-                      <div className="
-                        flex-1
-                        bg-[#EFE8D8]
-                        rounded-2xl
-                        border
-                        border-[#D8C8A8]
-                        p-4
-            sm:p-5
-                      ">
-                        <p className="
-                          text-xs
-                          uppercase
-                          tracking-[0.2em]
-                          text-gray-500
-                          font-bold
-                          mb-3
-                        ">
-                          Данные владельца
-                        </p>
-
-                        <p className="text-base sm:text-lg font-semibold text-[#111111]">
-                          {isFirstUnionCitizen
-                            ? "Настоящий документ подтверждает почётный статус первопроходца Федеральной Республики Ничегония."
-                            : "Настоящий документ подтверждает статус гражданина Федеральной Республики Ничегония."}
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="
-                      grid
-                      grid-cols-1
-                      md:grid-cols-2
-                      gap-x-10
-                      gap-y-7
-                    ">
-                      <div>
-                        <p className="text-xs uppercase text-gray-500 font-bold mb-1">
-                          ФИО
-                        </p>
-                        <p className="text-xl sm:text-2xl font-black text-[#111111]">
-                          {application.full_name}
-                        </p>
-                      </div>
-
-                      <div>
-                        <p className="text-xs uppercase text-gray-500 font-bold mb-1">
-                          Гражданство
-                        </p>
-                        <p className="text-xl sm:text-2xl font-black text-[#111111]">
-                          {isFirstUnionCitizen ? FIRST_UNION_TITLE : "Ничегошка"}
-                        </p>
-                      </div>
-
-                      <div>
-                        <p className="text-xs uppercase text-gray-500 font-bold mb-1">
-                          Номер паспорта
-                        </p>
-                        <p className="text-xl sm:text-2xl font-black text-[#111111]">
-                          {passportNumber}
-                        </p>
-                      </div>
-
-                      <div>
-                        <p className="text-xs uppercase text-gray-500 font-bold mb-1">
-                          Дата выдачи
-                        </p>
-                        <p className="text-xl sm:text-2xl font-black text-[#111111]">
-                          {issueDate}
-                        </p>
-                      </div>
-
-                      <div>
-                        <p className="text-xs uppercase text-gray-500 font-bold mb-1">
-                          Страна проживания
-                        </p>
-                        <p className="text-xl sm:text-2xl font-black text-[#111111]">
-                          {application.country}
-                        </p>
-                      </div>
-
-                      <div>
-                        <p className="text-xs uppercase text-gray-500 font-bold mb-1">
-                          Статус
-                        </p>
-                        <p className={`text-xl sm:text-2xl font-black ${isFirstUnionCitizen ? "text-[#7A5C12]" : "text-green-700"}`}>
-                          {isFirstUnionCitizen ? `👑 ${FIRST_UNION_TITLE}` : "Активный ничегошка"}
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="
-                      mt-10
-                      grid
-                      grid-cols-1
-                      md:grid-cols-2
-                      gap-6
-                      border-t
-                      border-[#D8C8A8]
-                      pt-8
-                    ">
-                      <div>
-                        <p className="text-xs uppercase text-gray-500 font-bold mb-2">
-                          Орган выдачи
-                        </p>
-                        <p className="text-base sm:text-lg font-black text-[#111111]">
-                          Администрация Президента Ничегонии
-                        </p>
-                      </div>
-
-                      <div className="
-                        flex
-                        items-center
-                        justify-start
-                        md:justify-end
-                      ">
-                        <div className="
-                          rotate-[-8deg]
-                          border-4
-                          border-blue-700
-                          text-blue-700
-                          px-4 sm:px-6
-                          py-3
-                          rounded-md
-                          font-black
-                          uppercase
-                          text-xl
-                        ">
-                          {isFirstUnionCitizen ? "Первый Союз" : "Одобрено"}
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="
-  mt-10
-  bg-white
-  rounded-2xl
-  border
-  border-[#D8C8A8]
-  p-5
-  flex
-  flex-col
-  sm:flex-row
-  sm:items-center
-  gap-4
-  sm:gap-5
-">
-  <div className="
-    bg-white
-    p-3
-    rounded-xl
-    border
-    border-[#D8C8A8]
-  ">
-    <QRCodeSVG
-      value={verifyUrl}
-      size={120}
-      bgColor="#ffffff"
-      fgColor="#111111"
-      level="M"
-    />
-  </div>
-
-  <div>
-    <p className="
-      text-xs
-      uppercase
-      tracking-[0.25em]
-      text-gray-500
-      font-bold
-      mb-2
-    ">
-      Проверка паспорта
-    </p>
-
-    <p className="text-base sm:text-lg font-black text-[#111111]">
-      Отсканируйте QR-код
-    </p>
-
-    <p className="text-sm text-gray-600 break-all mt-2">
-      {verifyUrl}
-    </p>
-  </div>
-</div>
-
-                    <div className="
-                      mt-10
-                      bg-[#EFE8D8]
-                      rounded-2xl
-                      border
-                      border-[#D8C8A8]
-                      p-4
-            sm:p-6
-                    ">
-                      <p className="
-                        text-sm
-                        uppercase
-                        tracking-[0.25em]
-                        text-gray-500
-                        font-bold
-                        mb-4
-                      ">
-                        Права гражданина Ничегонии
-                      </p>
-
-                      <div className="
-                        grid
-                        grid-cols-1
-                        md:grid-cols-2
-                        gap-3
-                        text-[#111111]
-                        font-semibold
-                      ">
-                        <p>✓ Имеет право на отдых</p>
-                        <p>✓ Может пользоваться Ничегометром</p>
-                        <p>✓ Может откладывать дела на потом</p>
-                        <p>✓ Считается ничегошкой</p>
-                        {isFirstUnionCitizen && <p>✓ Внесён в список Ничегошек Первого Созыва</p>}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
             </div>
+
+              <div ref={passportBookRef}>
+                <PassportBook
+    passport={passport}
+/>
+              </div>
+
           </div>
         )}
       </main>
@@ -977,139 +198,30 @@ async function downloadPassportPdf() {
   }
 
   return (
-    <main className="
-      min-h-[100dvh]
-      bg-[#F7F6F3]
-      flex
-      items-center
-      justify-center
-      px-4 sm:px-6
-      text-[#111111]
-    ">
-      <div className="
-        bg-white
-        max-w-md
-        w-full
-        rounded-3xl
-        shadow-2xl
-        p-5
-        sm:p-10
-        border
-        border-gray-200
-      ">
-        <h1 className="
-          text-3xl sm:text-4xl
-          font-black
-          text-center
-          mb-8
-          text-[#111111]
-        ">
-          Личный кабинет
-        </h1>
-
-        <label className="
-          block
-          mb-2
-          font-semibold
-          text-[#111111]
-        ">
-          Номер заявки
-        </label>
-
+    <main className="flex items-center justify-center min-h-[100dvh]">
+      <div className="p-6 bg-white rounded-xl w-[400px]">
         <input
-          type="text"
-          placeholder="Например: ПС-1 или НЧ-000001"
+          placeholder="Номер заявки"
           value={applicationNumber}
           onChange={(e) => setApplicationNumber(e.target.value)}
-          className="
-            w-full
-            border-2
-            border-gray-300
-            rounded-xl
-            p-4
-            mb-5
-            bg-white
-            text-[#111111]
-            placeholder:text-gray-400
-            outline-none
-            focus:border-[#111111]
-          "
+          className="border p-2 w-full mb-2"
         />
-
-        <label className="
-          block
-          mb-2
-          font-semibold
-          text-[#111111]
-        ">
-          Код доступа
-        </label>
 
         <input
-          type="text"
-          placeholder="Например: A7K9P2"
+          placeholder="Код доступа"
           value={accessCode}
           onChange={(e) => setAccessCode(e.target.value)}
-          className="
-            w-full
-            border-2
-            border-gray-300
-            rounded-xl
-            p-4
-            mb-6
-            bg-white
-            text-[#111111]
-            placeholder:text-gray-400
-            outline-none
-            focus:border-[#111111]
-          "
+          className="border p-2 w-full mb-2"
         />
 
-        {error && (
-          <div className="
-            bg-red-50
-            border
-            border-red-300
-            text-red-700
-            rounded-xl
-            p-4
-            mb-5
-            text-center
-            font-semibold
-          ">
-            {error}
-          </div>
-        )}
+        {error && <p className="text-red-500">{error}</p>}
 
         <button
           onClick={() => login()}
-          className="
-            w-full
-            bg-[#111111]
-            text-white
-            py-4
-            rounded-xl
-            font-bold
-            hover:opacity-90
-            transition
-          "
+          className="w-full bg-black text-white p-2 mt-2"
         >
           Войти
         </button>
-
-        <a
-          href="/"
-          className="
-            block
-            text-center
-            mt-5
-            text-gray-600
-            hover:text-[#111111]
-            transition
-          "
-        >
-          Вернуться на главную
-        </a>
       </div>
     </main>
   );
