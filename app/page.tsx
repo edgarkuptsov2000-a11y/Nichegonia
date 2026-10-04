@@ -88,6 +88,31 @@ export default function Home() {
     ЛИЧНЫЙ КАБИНЕТ
   </a>
 
+  <a
+    href="/first-union"
+    className="
+      inline-flex
+      w-full
+      sm:w-auto
+      justify-center
+      border-2
+      border-[#C9A646]
+      text-[#111111]
+      px-6
+      sm:px-10
+      py-4
+      rounded-lg
+      text-base
+      sm:text-lg
+      font-semibold
+      hover:bg-[#C9A646]
+      hover:text-white
+      transition
+    "
+  >
+    НИЧЕГОШКИ ПЕРВОГО СОЗЫВА
+  </a>
+
 </div>
 
 <p className="mt-5 text-sm text-gray-600">
