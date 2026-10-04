@@ -156,8 +156,8 @@ export default function FirstUnionPage() {
             </h1>
 
             <p className="max-w-2xl mx-auto text-base sm:text-lg text-[#5F4A17] font-semibold leading-relaxed">
-              Здесь собраны первые десять граждан Федеральной Республики Ничегония,
-              получившие почётный номер паспорта серии ПС.
+              Здесь собраны первые 15 граждан Федеральной Республики Ничегонии,
+              получившие почётный номер паспорта серии "ПС"
             </p>
 
             <div className="mt-7 inline-flex rounded-full bg-[#111111] px-6 py-3 text-white font-black shadow-xl">
