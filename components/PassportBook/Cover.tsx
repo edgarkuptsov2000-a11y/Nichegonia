@@ -1,45 +1,31 @@
 export default function Cover() {
   return (
-    <div
-      className="
-      passport-page
-      bg-black
-      text-[#D4AF37]
-      flex
-      flex-col
-      justify-between
-      items-center
-      p-14
-    "
-    >
-      <div className="text-center">
+    <div className="passport-page passport-cover">
+      <div className="passport-cover-pattern" />
 
-        <p className="tracking-[8px] text-xl">
+      <div className="passport-cover-top">
+        <div className="passport-cover-country">
           ФЕДЕРАЛЬНАЯ РЕСПУБЛИКА
-        </p>
+        </div>
 
-        <h1 className="text-5xl font-black mt-5">
+        <div className="passport-cover-country-main">
           НИЧЕГОНИЯ
-        </h1>
-
+        </div>
       </div>
 
-      <div className="text-[170px] font-black">
+      <div className="passport-cover-emblem">
         Н
       </div>
 
-      <div className="text-center">
-
-        <h2 className="text-6xl font-black">
+      <div className="passport-cover-bottom">
+        <div className="passport-cover-type">
           ПАСПОРТ
-        </h2>
+        </div>
 
-        <p className="mt-5 text-2xl">
+        <div className="passport-cover-subtitle">
           ГРАЖДАНИНА НИЧЕГОНИИ
-        </p>
-
+        </div>
       </div>
-
     </div>
   );
 }
