@@ -160,7 +160,7 @@ export default function CabinetPage() {
     surname: nameParts[0] || "",
     givenName: nameParts.slice(1).join(" ") || "",
 
-    nationality: "НЕЧЕГОНИЯ",
+    nationality: "НИЧЕГОШКА",
 
     country: application.country,
 

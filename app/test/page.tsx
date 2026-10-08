@@ -1,168 +1,554 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { ChangeEvent, FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import {
+  Achievement,
+  ExamAnswer,
+  ExamQuestion,
+  achievements,
+  calculateScore,
+  getRandomQuestions,
+  getRandomSecretQuestion,
+  getRandomUltraSecretQuestion,
+  getTitle,
+  getVerdict,
+  shuffleArray,
+} from "@/lib/exam";
 
-const questions = [
-  {
-    question: "Вы запланировали важное дело. Что будете делать?",
-    answers: [
-      "Сделаю прямо сейчас",
-      "Сделаю вечером",
-      "Сделаю потом"
-    ]
-  },
-  {
-    question: "Сегодня пятница. Что это означает?",
-    answers: [
-      "Обычный день",
-      "Конец рабочей недели",
-      "Маленькая суббота"
-    ]
-  },
-  {
-    question: "Если Ничегометр ошибся, необходимо:",
-    answers: [
-      "Проверить ещё раз",
-      "Написать жалобу",
-      "Посмотреть статью 5 Конституции"
-    ]
-  },
-  {
-    question: "Вы открыли холодильник и забыли зачем пришли. Что делать?",
-    answers: [
-      "Искать дальше",
-      "Закрыть холодильник",
-      "Сделать вид, что так и было задумано"
-    ]
-  },
-  {
-    question: "Сколько вкладок в браузере считается нормальным количеством?",
-    answers: [
-      "До 5",
-      "До 20",
-      "Пока браузер не начнёт зависать"
-    ]
-  },
-  {
-    question: "Что является главным государственным принципом Ничегонии?",
-    answers: [
-      "Работа",
-      "Саморазвитие",
-      "Ничего. Но стабильно."
-    ]
-  },
-  {
-    question: "Если вы легли на кровать в 15:00, что может произойти?",
-    answers: [
-      "Ничего",
-      "Короткий отдых",
-      "Перемещение во времени до вечера"
-    ]
-  },
-  {
-    question: "Какой документ важнее всего в Ничегонии?",
-    answers: [
-      "Паспорт",
-      "Конституция",
-      "Скриншот, который был сохранён «на потом»"
-    ]
-  },
-  {
-    question: "Ты подписан на канал welqw?",
-    answers: [
-      "Да",
-      "Нет"
-    ]
+type ExamStage = "form" | "exam" | "result" | "submitted";
+
+const TOTAL_QUESTIONS = 15;
+const QUESTION_TIME_LIMIT = 90;
+const MAX_SECRETS = 3;
+
+function formatTime(seconds: number) {
+  const mins = Math.floor(seconds / 60);
+  const secs = seconds % 60;
+
+  return `${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
+}
+
+function getSecretChance(
+  questionIndex: number,
+  answerChanges: number,
+  timeSpent: number
+) {
+  let chance = 0;
+
+  if (questionIndex >= 3) chance += 0.05;
+  if (questionIndex >= 7) chance += 0.1;
+  if (questionIndex >= 11) chance += 0.15;
+
+  if (answerChanges >= 3) chance += 0.08;
+  if (timeSpent > 45) chance += 0.05;
+
+  return Math.min(chance, 0.35);
+}
+
+function buildAchievements(
+  finalAnswers: ExamAnswer[],
+  finalScore: number,
+  finalSeconds: number,
+  finalChanges: number
+): Achievement[] {
+  const ids = new Set<string>();
+
+  ids.add("citizen");
+  ids.add("nothing");
+
+  if (finalScore === 100) {
+    ids.add("perfect");
   }
-];
 
-const secretQuestions = [
-  {
-    question: "Сейчас 2 часа ночи. Что вы делаете?",
-    answers: [
-      "Сплю",
-      "Смотрю одно видео перед сном",
-      "Уже 4 часа смотрю видео и не понимаю как оказался здесь"
-    ]
-  },
-  {
-    question: "Что означает фраза: «Я только на минутку зашёл в YouTube»?",
-    answers: [
-      "Одну минуту",
-      "10 минут",
-      "Минимум 2 часа"
-    ]
-  },
-  {
-    question: "Вы увидели мем. Ваши действия?",
-    answers: [
-      "Посмеяться",
-      "Сохранить",
-      "Сохранить и никогда больше не открыть"
-    ]
+  if (finalSeconds < 60) {
+    ids.add("speed");
   }
-];
 
-type AnswerItem = {
-  question: string;
-  answer: string;
-};
+  const secretAnswers = finalAnswers.filter(
+    (answer) =>
+      answer.type === "secret" || answer.type === "ultra-secret"
+  );
 
-type SecretQuestion = {
-  question: string;
-  answers: string[];
-};
+  if (secretAnswers.length >= 1) {
+    ids.add("observant");
+  }
+
+  if (secretAnswers.length >= 2) {
+    ids.add("archivist");
+  }
+
+  if (
+    secretAnswers.some(
+      (answer) => answer.type === "ultra-secret"
+    )
+  ) {
+    ids.add("ultra");
+  }
+
+  if (finalChanges >= 5) {
+    ids.add("indecisive");
+  }
+
+  if (
+    finalAnswers.some(
+      (answer) => answer.timeSpent >= 60
+    )
+  ) {
+    ids.add("patient");
+  }
+
+  if (
+    finalAnswers.some(
+      (answer) =>
+        answer.category === "Конституция" && answer.isCorrect
+    )
+  ) {
+    ids.add("constitution");
+  }
+
+  return achievements.filter((achievement) =>
+    ids.has(achievement.id)
+  );
+}
 
 export default function TestPage() {
-  const [showError, setShowError] = useState(false);
+  // -----------------------------
+  // FORM
+  // -----------------------------
 
-  const [started, setStarted] = useState(false);
   const [fullName, setFullName] = useState("");
   const [age, setAge] = useState("");
   const [country, setCountry] = useState("");
   const [reason, setReason] = useState("");
   const [photoFile, setPhotoFile] = useState<File | null>(null);
 
-  const [currentQuestion, setCurrentQuestion] = useState(0);
-  const [secretQuestion, setSecretQuestion] = useState<SecretQuestion | null>(null);
-  const [secretUsed, setSecretUsed] = useState(false);
+  // -----------------------------
+  // EXAM
+  // -----------------------------
 
-  const [userAnswers, setUserAnswers] = useState<AnswerItem[]>([]);
-  const [completedAnswers, setCompletedAnswers] = useState<AnswerItem[]>([]);
-  const [testCompleted, setTestCompleted] = useState(false);
+  const [stage, setStage] = useState<ExamStage>("form");
+
+  const [questions, setQuestions] = useState<ExamQuestion[]>([]);
+  const [currentQuestion, setCurrentQuestion] = useState(0);
+
+  const [secretQuestion, setSecretQuestion] =
+    useState<ExamQuestion | null>(null);
+
+  const [isUltraSecret, setIsUltraSecret] = useState(false);
+
+  const [selectedAnswer, setSelectedAnswer] = useState("");
+  const [shuffledAnswers, setShuffledAnswers] = useState<string[]>([]);
+
+  const [answerHistory, setAnswerHistory] = useState<ExamAnswer[]>([]);
+
+  const [answerChanges, setAnswerChanges] = useState(0);
+  const [secretsFound, setSecretsFound] = useState(0);
+
+  const [totalSeconds, setTotalSeconds] = useState(0);
+  const [questionSeconds, setQuestionSeconds] = useState(0);
+
+  const [score, setScore] = useState(0);
+  const [title, setTitle] = useState("");
+  const [verdict, setVerdict] = useState("");
+
+  const [unlockedAchievements, setUnlockedAchievements] =
+    useState<Achievement[]>([]);
+
+  // -----------------------------
+  // SUBMISSION
+  // -----------------------------
 
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submittedApplicationNumber, setSubmittedApplicationNumber] =
+    useState("");
+  const [submittedAccessCode, setSubmittedAccessCode] =
+    useState("");
+
+  const [error, setError] = useState("");
+
+  // -----------------------------
+  // REFS
+  // -----------------------------
+
+  const examStartedAt = useRef<number | null>(null);
+  const questionStartedAt = useRef<number | null>(null);
+
   const submitStartedRef = useRef(false);
 
-  const [submitted, setSubmitted] = useState(false);
-  const [submittedApplicationNumber, setSubmittedApplicationNumber] = useState("");
-  const [submittedAccessCode, setSubmittedAccessCode] = useState("");
+  // -----------------------------
+  // CURRENT QUESTION
+  // -----------------------------
 
-  // Важно: прогресс теста больше не сохраняем в localStorage.
-  // Иначе следующий заявитель может попадать на старый 9-й вопрос.
+  const activeQuestion = useMemo(() => {
+    if (secretQuestion) {
+      return secretQuestion;
+    }
 
-  const question = secretQuestion || questions[currentQuestion];
+    return questions[currentQuestion] ?? null;
+  }, [secretQuestion, questions, currentQuestion]);
 
-  const shuffledAnswers = [...question.answers].sort(
-    () => Math.random() - 0.5
-  );
+  const isSecret = Boolean(secretQuestion);
+
+  // -----------------------------
+  // SHUFFLE ANSWERS
+  // -----------------------------
+
+  useEffect(() => {
+    if (!activeQuestion) {
+      setShuffledAnswers([]);
+      return;
+    }
+
+    setShuffledAnswers(
+      shuffleArray(activeQuestion.answers)
+    );
+
+    setSelectedAnswer("");
+    setQuestionSeconds(0);
+
+    questionStartedAt.current = Date.now();
+  }, [activeQuestion?.id]);
+
+  // -----------------------------
+  // EXAM TIMER
+  // -----------------------------
+
+  useEffect(() => {
+    if (stage !== "exam") {
+      return;
+    }
+
+    const interval = window.setInterval(() => {
+      if (examStartedAt.current) {
+        const elapsed = Math.floor(
+          (Date.now() - examStartedAt.current) / 1000
+        );
+
+        setTotalSeconds(elapsed);
+      }
+
+      if (questionStartedAt.current) {
+        const elapsed = Math.floor(
+          (Date.now() - questionStartedAt.current) / 1000
+        );
+
+        setQuestionSeconds(elapsed);
+      }
+    }, 250);
+
+    return () => {
+      window.clearInterval(interval);
+    };
+  }, [stage]);
+
+  // -----------------------------
+  // AUTO TIMEOUT
+  // -----------------------------
+
+  useEffect(() => {
+    if (stage !== "exam") return;
+    if (!activeQuestion) return;
+
+    if (questionSeconds >= QUESTION_TIME_LIMIT) {
+      confirmAnswer();
+    }
+  }, [questionSeconds]);
+
+  // -----------------------------
+  // START EXAM
+  // -----------------------------
+
+  function startExam(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    setError("");
+
+    if (!fullName.trim()) {
+      setError("Укажи полное имя.");
+      return;
+    }
+
+    if (!age.trim()) {
+      setError("Укажи возраст.");
+      return;
+    }
+
+    if (!country.trim()) {
+      setError("Укажи страну проживания.");
+      return;
+    }
+
+    if (!reason.trim()) {
+      setError("Напиши, зачем тебе гражданство Ничегонии.");
+      return;
+    }
+
+    if (!photoFile) {
+      setError("Загрузи фотографию.");
+      return;
+    }
+
+    const generatedQuestions = getRandomQuestions(
+      TOTAL_QUESTIONS
+    );
+
+    setQuestions(generatedQuestions);
+    setCurrentQuestion(0);
+    setSecretQuestion(null);
+    setIsUltraSecret(false);
+
+    setSelectedAnswer("");
+    setAnswerHistory([]);
+
+    setAnswerChanges(0);
+    setSecretsFound(0);
+
+    setTotalSeconds(0);
+    setQuestionSeconds(0);
+
+    setScore(0);
+    setTitle("");
+    setVerdict("");
+    setUnlockedAchievements([]);
+
+    submitStartedRef.current = false;
+
+    const now = Date.now();
+
+    examStartedAt.current = now;
+    questionStartedAt.current = now;
+
+    setStage("exam");
+  }
+
+  // -----------------------------
+  // SELECT ANSWER
+  // -----------------------------
+
+  function selectAnswer(answer: string) {
+    if (selectedAnswer && selectedAnswer !== answer) {
+      setAnswerChanges((previous) => previous + 1);
+    }
+
+    setSelectedAnswer(answer);
+  }
+
+  // -----------------------------
+  // FINISH EXAM
+  // -----------------------------
+
+  function finishExam(finalAnswers: ExamAnswer[]) {
+    const actualTotalSeconds = examStartedAt.current
+      ? Math.floor(
+          (Date.now() - examStartedAt.current) / 1000
+        )
+      : totalSeconds;
+
+    const finalScore = calculateScore(finalAnswers);
+    const finalTitle = getTitle(finalScore);
+    const finalVerdict = getVerdict(finalScore);
+
+    const finalAchievements = buildAchievements(
+      finalAnswers,
+      finalScore,
+      actualTotalSeconds,
+      answerChanges
+    );
+
+    setTotalSeconds(actualTotalSeconds);
+    setScore(finalScore);
+    setTitle(finalTitle);
+    setVerdict(finalVerdict);
+    setUnlockedAchievements(finalAchievements);
+
+    try {
+      localStorage.setItem(
+        "nichogonia-exam-v2",
+        JSON.stringify({
+          score: finalScore,
+          title: finalTitle,
+          verdict: finalVerdict,
+          totalSeconds: actualTotalSeconds,
+          answerChanges,
+          secretsFound,
+          achievements: finalAchievements.map(
+            (achievement) => achievement.id
+          ),
+        })
+      );
+    } catch {
+      // localStorage не должен ломать экзамен
+    }
+
+    setStage("result");
+  }
+
+  // -----------------------------
+  // AFTER REGULAR QUESTION
+  // -----------------------------
+
+  function continueAfterRegularAnswer(
+    newAnswer: ExamAnswer
+  ) {
+    const nextAnswers = [
+      ...answerHistory,
+      newAnswer,
+    ];
+
+    const timeSpent = newAnswer.timeSpent;
+
+    const chance = getSecretChance(
+      currentQuestion,
+      answerChanges,
+      timeSpent
+    );
+
+    const canFindSecret =
+      secretsFound < MAX_SECRETS;
+
+    const shouldShowSecret =
+      canFindSecret && Math.random() < chance;
+
+    // Важно:
+    // обычный вопрос уже считается пройденным.
+    const nextQuestionIndex = currentQuestion + 1;
+
+    setCurrentQuestion(nextQuestionIndex);
+
+    if (shouldShowSecret) {
+      const ultraChance =
+        currentQuestion >= 8 ? 0.05 : 0.015;
+
+      const ultra =
+        Math.random() < ultraChance;
+
+      const generatedSecret = ultra
+        ? getRandomUltraSecretQuestion()
+        : getRandomSecretQuestion();
+
+      setSecretQuestion(generatedSecret);
+      setIsUltraSecret(ultra);
+
+      setAnswerHistory(nextAnswers);
+      setQuestionSeconds(0);
+
+      questionStartedAt.current = Date.now();
+
+      return;
+    }
+
+    setAnswerHistory(nextAnswers);
+
+    if (nextQuestionIndex >= questions.length) {
+      finishExam(nextAnswers);
+      return;
+    }
+
+    setQuestionSeconds(0);
+    questionStartedAt.current = Date.now();
+  }
+
+  // -----------------------------
+  // CONFIRM ANSWER
+  // -----------------------------
+
+  function confirmAnswer() {
+    if (!activeQuestion) return;
+
+    const currentTime = questionStartedAt.current
+      ? Math.floor(
+          (Date.now() - questionStartedAt.current) / 1000
+        )
+      : questionSeconds;
+
+    const isCorrect =
+      selectedAnswer === activeQuestion.correctAnswer;
+
+    const previousAnswer = answerHistory.find(
+      (item) =>
+        item.questionId === activeQuestion.id
+    );
+
+    const changed =
+      previousAnswer !== undefined &&
+      previousAnswer.answer !== selectedAnswer;
+
+    const newAnswer: ExamAnswer = {
+      questionId: activeQuestion.id,
+      question: activeQuestion.question,
+      type: activeQuestion.type,
+      category: activeQuestion.category,
+
+      answer: selectedAnswer,
+      correctAnswer: activeQuestion.correctAnswer,
+
+      isCorrect,
+      points: isCorrect
+        ? activeQuestion.points
+        : 0,
+
+      changed,
+      timeSpent: currentTime,
+    };
+
+    // -----------------------------
+    // SECRET QUESTION
+    // -----------------------------
+
+    if (secretQuestion) {
+      const nextAnswers = [
+        ...answerHistory,
+        newAnswer,
+      ];
+
+      setAnswerHistory(nextAnswers);
+      setSecretsFound(
+        (previous) => previous + 1
+      );
+
+      setSecretQuestion(null);
+      setIsUltraSecret(false);
+
+      setSelectedAnswer("");
+      setQuestionSeconds(0);
+
+      questionStartedAt.current = Date.now();
+
+      if (currentQuestion >= questions.length) {
+        finishExam(nextAnswers);
+      }
+
+      return;
+    }
+
+    // -----------------------------
+    // REGULAR QUESTION
+    // -----------------------------
+
+    continueAfterRegularAnswer(newAnswer);
+  }
+
+  // -----------------------------
+  // PHOTO
+  // -----------------------------
+
+  function handlePhotoChange(
+    event: ChangeEvent<HTMLInputElement>
+  ) {
+    const file = event.target.files?.[0] ?? null;
+    setPhotoFile(file);
+  }
+
+  // -----------------------------
+  // SUBMIT APPLICATION
+  // -----------------------------
 
   async function submitApplication() {
-    if (submitStartedRef.current || isSubmitting) {
-      return;
-    }
-
-    const answersToSubmit = completedAnswers.length > 0
-      ? completedAnswers
-      : userAnswers;
-
-    if (answersToSubmit.length === 0) {
-      alert("Ответы не найдены. Пройдите тест заново.");
-      return;
-    }
+    if (submitStartedRef.current) return;
 
     submitStartedRef.current = true;
     setIsSubmitting(true);
+    setError("");
 
     try {
       const formData = new FormData();
@@ -171,644 +557,630 @@ export default function TestPage() {
       formData.append("age", age);
       formData.append("country", country);
       formData.append("reason", reason);
-      formData.append("answers", JSON.stringify(answersToSubmit));
 
       if (photoFile) {
         formData.append("photo", photoFile);
       }
 
-      const response = await fetch("/api/applications/submit", {
-        method: "POST",
-        body: formData
-      });
+      formData.append("examVersion", "2");
+      formData.append("score", String(score));
+      formData.append("title", title);
+      formData.append("verdict", verdict);
 
-      const result = await response.json();
+      formData.append(
+        "correctAnswers",
+        String(
+          answerHistory.filter(
+            (answer) => answer.isCorrect
+          ).length
+        )
+      );
+
+      formData.append(
+        "totalQuestions",
+        String(answerHistory.length)
+      );
+
+      formData.append(
+        "totalSeconds",
+        String(totalSeconds)
+      );
+
+      formData.append(
+        "answerChanges",
+        String(answerChanges)
+      );
+
+      formData.append(
+        "secretsFound",
+        String(secretsFound)
+      );
+
+      formData.append(
+        "achievements",
+        JSON.stringify(
+          unlockedAchievements.map(
+            (achievement) => achievement.id
+          )
+        )
+      );
+
+      formData.append(
+        "answers",
+        JSON.stringify(answerHistory)
+      );
+
+      const response = await fetch(
+        "/api/applications/submit",
+        {
+          method: "POST",
+          body: formData,
+        }
+      );
+
+      const data = await response.json();
 
       if (!response.ok) {
-        console.log("SUBMIT APPLICATION ERROR:", result);
-        alert(result.error || "Не удалось отправить заявку.");
-        submitStartedRef.current = false;
-        setIsSubmitting(false);
-        return;
+        throw new Error(
+          data?.error ||
+            "Не удалось отправить заявление."
+        );
       }
 
-      const applicationNumber = result.applicationNumber;
-      const accessCode = result.accessCode;
+      setSubmittedApplicationNumber(
+        data.applicationNumber || ""
+      );
 
-      setSubmittedApplicationNumber(applicationNumber);
-      setSubmittedAccessCode(accessCode);
+      setSubmittedAccessCode(
+        data.accessCode || ""
+      );
 
-      localStorage.removeItem("nichogonia-test");
-      setStarted(false);
-      setTestCompleted(false);
-      setUserAnswers([]);
-      setCompletedAnswers([]);
-      setCurrentQuestion(0);
-      setSecretQuestion(null);
-      setSecretUsed(false);
-      setSubmitted(true);
-    } catch (error) {
-      console.log("SUBMIT APPLICATION ERROR:", error);
-      alert("Не удалось отправить заявку. Попробуйте ещё раз.");
+      setStage("submitted");
+    } catch (submitError) {
       submitStartedRef.current = false;
+
+      setError(
+        submitError instanceof Error
+          ? submitError.message
+          : "Произошла неизвестная ошибка."
+      );
+    } finally {
       setIsSubmitting(false);
     }
   }
 
-  if (submitted) {
+  // -----------------------------
+  // FORM
+  // -----------------------------
+
+  if (stage === "form") {
     return (
-      <main className="min-h-[100dvh] bg-[#F7F6F3] flex items-center justify-center px-4 sm:px-6 py-6 sm:py-10">
-        <div className="
-          bg-white
-          rounded-3xl
-          shadow-2xl
-          p-4
-          sm:p-5
-          sm:p-12
-          max-w-2xl
-          w-full
-          text-center
-          border
-        ">
-          <div className="
-            w-16
-            h-16
-            sm:w-24
-            sm:h-24
-            mx-auto
-            mb-5
-            sm:mb-8
-            rounded-full
-            bg-green-100
-            flex
-            items-center
-            justify-center
-            text-3xl sm:text-5xl
-          ">
-            ✓
+      <main className="min-h-screen bg-[#111111] text-[#F7F6F3]">
+        <div className="mx-auto max-w-5xl px-6 py-12 sm:px-10 lg:py-20">
+          <div className="mb-12 border-b border-[#C9A646]/30 pb-8">
+            <div className="mb-3 text-xs font-semibold tracking-[0.35em] text-[#C9A646]">
+              ФЕДЕРАЛЬНАЯ РЕСПУБЛИКА
+            </div>
+
+            <h1 className="text-4xl font-black tracking-tight sm:text-6xl">
+              Гражданство
+              <br />
+              Ничегонии
+            </h1>
+
+            <p className="mt-6 max-w-2xl text-sm leading-7 text-white/55 sm:text-base">
+              Перед получением гражданства необходимо пройти
+              официальный экзамен. Государство проверит,
+              достаточно ли хорошо ты ничего не делаешь.
+            </p>
           </div>
 
-          <h1 className="text-3xl sm:text-5xl font-bold mb-6 text-[#111111]">
-            ЗАЯВКА ОТПРАВЛЕНА
-          </h1>
+          <form
+            onSubmit={startExam}
+            className="grid gap-6"
+          >
+            <div className="grid gap-6 sm:grid-cols-2">
+              <label className="block">
+                <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-[#C9A646]">
+                  Полное имя
+                </span>
 
-          <p className="text-base sm:text-lg text-[#111111] mb-4">
-            Ваше заявление принято Администрацией Президента Ничегонии.
-          </p>
+                <input
+                  value={fullName}
+                  onChange={(event) =>
+                    setFullName(event.target.value)
+                  }
+                  placeholder="Например, Пупка Пупкин"
+                  className="w-full border border-white/10 bg-white/[0.04] px-4 py-4 outline-none transition focus:border-[#C9A646]"
+                />
+              </label>
 
-          <p className="text-base sm:text-lg text-[#111111] mb-8">
-            Ожидайте решения по вашему запросу.
-          </p>
+              <label className="block">
+                <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-[#C9A646]">
+                  Возраст
+                </span>
 
-          <div className="
-            grid
-            grid-cols-1
-            sm:grid-cols-3
-            gap-4
-            mb-5
-            sm:mb-8
-          ">
-            <div className="
-              bg-[#F7F6F3]
-              border
-              border-gray-200
-              rounded-2xl
-              p-4
-          sm:p-5
-              text-left
-            ">
-              <p className="
-                text-xs
-                uppercase
-                tracking-[0.2em]
-                text-gray-500
-                font-semibold
-                mb-3
-              ">
-                Номер заявки
-              </p>
-
-              <p className="
-                text-lg sm:text-xl
-                font-black
-                text-[#111111]
-                break-all
-              ">
-                {submittedApplicationNumber || "Не создан"}
-              </p>
+                <input
+                  value={age}
+                  onChange={(event) =>
+                    setAge(event.target.value)
+                  }
+                  type="number"
+                  min="1"
+                  max="120"
+                  placeholder="19"
+                  className="w-full border border-white/10 bg-white/[0.04] px-4 py-4 outline-none transition focus:border-[#C9A646]"
+                />
+              </label>
             </div>
 
-            <div className="
-              bg-[#F7F6F3]
-              border
-              border-gray-200
-              rounded-2xl
-              p-4
-          sm:p-5
-              text-left
-            ">
-              <p className="
-                text-xs
-                uppercase
-                tracking-[0.2em]
-                text-gray-500
-                font-semibold
-                mb-3
-              ">
-                Код доступа
-              </p>
+            <label className="block">
+              <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-[#C9A646]">
+                Страна проживания
+              </span>
 
-              <p className="
-                text-lg sm:text-xl
-                font-black
-                text-[#111111]
-                break-all
-              ">
-                {submittedAccessCode || "Не создан"}
-              </p>
-            </div>
+              <input
+                value={country}
+                onChange={(event) =>
+                  setCountry(event.target.value)
+                }
+                placeholder="Россия"
+                className="w-full border border-white/10 bg-white/[0.04] px-4 py-4 outline-none transition focus:border-[#C9A646]"
+              />
+            </label>
 
-            <div className="
-              bg-yellow-50
-              border
-              border-yellow-200
-              rounded-2xl
-              p-4
-          sm:p-5
-              text-left
-            ">
-              <div className="flex items-center gap-2 mb-3">
-                <span className="
-                  w-3
-                  h-3
-                  rounded-full
-                  bg-yellow-400
-                " />
+            <label className="block">
+              <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-[#C9A646]">
+                Зачем тебе гражданство Ничегонии?
+              </span>
 
-                <p className="
-                  text-xs
-                  uppercase
-                  tracking-[0.2em]
-                  text-yellow-700
-                  font-semibold
-                ">
-                  Статус
-                </p>
+              <textarea
+                value={reason}
+                onChange={(event) =>
+                  setReason(event.target.value)
+                }
+                rows={5}
+                placeholder="Расскажи государству о своих намерениях..."
+                className="w-full resize-none border border-white/10 bg-white/[0.04] px-4 py-4 outline-none transition focus:border-[#C9A646]"
+              />
+            </label>
+
+            <label className="block">
+              <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-[#C9A646]">
+                Фотография
+              </span>
+
+              <input
+                type="file"
+                accept="image/*"
+                onChange={handlePhotoChange}
+                className="block w-full border border-white/10 bg-white/[0.04] p-4 text-sm text-white/60 file:mr-4 file:border-0 file:bg-[#C9A646] file:px-4 file:py-2 file:font-semibold file:text-[#111111]"
+              />
+            </label>
+
+            {error && (
+              <div className="border border-red-400/30 bg-red-400/10 px-5 py-4 text-sm text-red-300">
+                {error}
               </div>
-
-              <p className="
-                text-lg sm:text-xl
-                font-black
-                text-yellow-800
-              ">
-                На рассмотрении
-              </p>
-            </div>
-          </div>
-
-          <button
-            onClick={() => {
-              window.location.href = "/";
-            }}
-            className="
-              w-full
-              bg-[#111111]
-              text-white
-              py-3
-            sm:py-4
-              rounded-xl
-              font-semibold
-            "
-          >
-            Вернуться в главное меню
-          </button>
-        </div>
-      </main>
-    );
-  }
-
-  if (testCompleted) {
-    return (
-      <main className="min-h-[100dvh] bg-[#F7F6F3] flex items-center justify-center px-4 sm:px-6 py-6 sm:py-10">
-        <div className="
-          bg-white
-          rounded-3xl
-          shadow-2xl
-          p-4
-          sm:p-5
-          sm:p-12
-          max-w-2xl
-          w-full
-          text-center
-          border
-          text-[#111111]
-        ">
-          <div className="
-            w-16
-            h-16
-            sm:w-24
-            sm:h-24
-            mx-auto
-            mb-5
-            sm:mb-8
-            rounded-full
-            bg-[#111111]
-            text-white
-            flex
-            items-center
-            justify-center
-            text-3xl sm:text-5xl
-          ">
-            📝
-          </div>
-
-          <h1 className="text-3xl sm:text-5xl font-black mb-6 text-[#111111]">
-            РЕЗУЛЬТАТ ГОТОВ
-          </h1>
-
-          <p className="text-base sm:text-lg text-[#111111] mb-8">
-            Экзамен завершён. Осталось отправить результат в Администрацию Ничегонии.
-          </p>
-
-          <div className="
-            bg-[#F7F6F3]
-            border
-            border-gray-200
-            rounded-2xl
-            p-4
-          sm:p-6
-            text-left
-            mb-5
-            sm:mb-8
-          ">
-            <p className="text-gray-500 text-sm mb-1">
-              ФИО
-            </p>
-            <p className="text-xl sm:text-2xl font-black mb-5">
-              {fullName}
-            </p>
-
-            <p className="text-gray-500 text-sm mb-1">
-              Страна
-            </p>
-            <p className="text-xl sm:text-2xl font-black mb-5">
-              {country}
-            </p>
-
-            <p className="text-gray-500 text-sm mb-1">
-              Количество ответов
-            </p>
-            <p className="text-xl sm:text-2xl font-black">
-              {completedAnswers.length || userAnswers.length}
-            </p>
-          </div>
-
-          <button
-            onClick={submitApplication}
-            disabled={isSubmitting}
-            className="
-              w-full
-              bg-[#111111]
-              text-white
-              py-3
-            sm:py-4
-              rounded-xl
-              font-black
-              hover:opacity-90
-              transition
-              disabled:opacity-50
-              disabled:cursor-not-allowed
-            "
-          >
-            {isSubmitting ? "Отправляем..." : "Отправить результат"}
-          </button>
-
-          <p className="text-sm text-gray-500 mt-4">
-            После нажатия заявка отправится только один раз.
-          </p>
-        </div>
-      </main>
-    );
-  }
-
-  if (started) {
-    return (
-      <main className="min-h-[100dvh] bg-[#F7F6F3] flex items-center justify-center px-4 sm:px-6 py-6 sm:py-10">
-        <div className="bg-white rounded-2xl shadow-xl p-5 sm:p-10 max-w-3xl w-full text-[#111111]">
-          <p className="text-sm mb-4 text-[#111111] font-semibold">
-            {secretQuestion
-              ? "Секретный вопрос"
-              : `Вопрос ${currentQuestion + 1} из 9`}
-          </p>
-
-          <div className="w-full bg-gray-200 h-3 rounded-full mb-8">
-            <div
-              className="bg-[#111111] h-3 rounded-full"
-              style={{
-                width: `${((currentQuestion + 1) / 9) * 100}%`
-              }}
-            />
-          </div>
-
-          <h2 className="text-2xl sm:text-3xl font-bold mb-8 text-[#111111]">
-            {question.question}
-          </h2>
-
-          <div className="space-y-4">
-            {shuffledAnswers.map((answer) => (
-              <button
-                key={answer}
-                onClick={() => {
-                  const updatedAnswers = [
-                    ...userAnswers,
-                    {
-                      question: question.question,
-                      answer: answer
-                    }
-                  ];
-
-                  setUserAnswers(updatedAnswers);
-
-                  if (
-                    currentQuestion === 8 &&
-                    answer === "Нет"
-                  ) {
-                    window.open(
-                      "https://youtube.com/@welqwshow",
-                      "_blank"
-                    );
-                    return;
-                  }
-
-                  if (currentQuestion === 8) {
-                    setCompletedAnswers(updatedAnswers);
-                    setTestCompleted(true);
-                    return;
-                  }
-
-                  if (secretQuestion) {
-                    setSecretQuestion(null);
-                    setSecretUsed(false);
-                    setCurrentQuestion(currentQuestion + 1);
-                    return;
-                  }
-
-                  if (
-                    !secretUsed &&
-                    currentQuestion < 8 &&
-                    Math.random() < 0.1
-                  ) {
-                    const randomSecret =
-                      secretQuestions[
-                        Math.floor(
-                          Math.random() * secretQuestions.length
-                        )
-                      ];
-
-                    setSecretQuestion(randomSecret);
-                    setSecretUsed(true);
-
-                    return;
-                  }
-
-                  setCurrentQuestion(
-                    currentQuestion + 1
-                  );
-                }}
-                className="
-                  w-full
-                  text-left
-                  border-2
-                  border-gray-300
-                  rounded-xl
-                  p-4
-          sm:p-5
-                  bg-white
-                  text-[#111111]
-                  font-medium
-                  hover:bg-gray-100
-                  transition
-                "
-              >
-                {answer}
-              </button>
-            ))}
-          </div>
-        </div>
-      </main>
-    );
-  }
-
-  return (
-    <main className="min-h-[100dvh] bg-[#F7F6F3] flex items-center justify-center px-4 sm:px-6 py-6 sm:py-10">
-      <div className="bg-white rounded-2xl shadow-xl p-5 sm:p-12 max-w-2xl text-center">
-        <h1 className="text-3xl sm:text-4xl font-bold text-[#111111] mb-6">
-          Экзамен на гражданство Ничегонии
-        </h1>
-
-        <p className="text-base sm:text-lg text-[#111111] mb-4">
-          Для получения гражданства необходимо пройти
-          официальный государственный экзамен.
-        </p>
-
-        <p className="text-lg sm:text-xl text-[#111111] italic mb-8">
-          Провалить экзамен невозможно.
-        </p>
-
-        <p className="text-base sm:text-lg text-[#111111] mb-4">
-          Но это не точно.
-        </p>
-
-        <div className="space-y-5 text-left">
-          <div>
-            <label className="block mb-2 font-semibold text-black">
-              ФИО
-            </label>
-
-            <input
-              type="text"
-              value={fullName}
-              onChange={(e) => setFullName(e.target.value)}
-              className={`
-                w-full
-                border-2
-                rounded-lg
-                p-3
-                bg-white
-                text-black
-                ${
-                  showError && !fullName.trim()
-                    ? "border-red-500"
-                    : "border-gray-300"
-                }
-              `}
-            />
-          </div>
-
-          <div>
-            <label className="block mb-2 font-semibold text-black">
-              Возраст
-            </label>
-
-            <input
-              type="number"
-              value={age}
-              onChange={(e) => setAge(e.target.value)}
-              className={`
-                w-full
-                border-2
-                rounded-lg
-                p-3
-                bg-white
-                text-black
-                ${
-                  showError && !age.trim()
-                    ? "border-red-500"
-                    : "border-gray-300"
-                }
-              `}
-            />
-          </div>
-
-          <div>
-            <label className="block mb-2 font-semibold text-black">
-              Страна проживания
-            </label>
-
-            <input
-              type="text"
-              value={country}
-              onChange={(e) => setCountry(e.target.value)}
-              className={`
-                w-full
-                border-2
-                rounded-lg
-                p-3
-                bg-white
-                text-black
-                ${
-                  showError && !country.trim()
-                    ? "border-red-500"
-                    : "border-gray-300"
-                }
-              `}
-            />
-          </div>
-
-          <div>
-            <label className="block mb-2 font-semibold text-black">
-              Почему вы хотите стать гражданином Ничегонии?
-            </label>
-
-            <textarea
-              value={reason}
-              onChange={(e) => setReason(e.target.value)}
-              rows={4}
-              className={`
-                w-full
-                border-2
-                rounded-lg
-                p-3
-                bg-white
-                text-black
-                ${
-                  showError && !reason.trim()
-                    ? "border-red-500"
-                    : "border-gray-300"
-                }
-              `}
-            />
-          </div>
-
-          <div>
-            <label className="block mb-2 font-semibold text-black">
-              Фото для паспорта
-            </label>
-
-            <input
-              type="file"
-              accept="image/*"
-              onChange={(e) => {
-                const file = e.target.files?.[0];
-
-                if (file) {
-                  setPhotoFile(file);
-                }
-              }}
-              className="
-                w-full
-                border-2
-                border-gray-300
-                rounded-lg
-                p-3
-                bg-white
-                text-black
-              "
-            />
-
-            {photoFile && (
-              <p className="text-sm text-green-700 font-semibold mt-2">
-                Фото выбрано: {photoFile.name}
-              </p>
             )}
 
-            <p className="text-sm text-gray-500 mt-2">
-              Это фото будет отображаться в паспорте гражданина Ничегонии.
+            <button
+              type="submit"
+              className="mt-4 bg-[#C9A646] px-8 py-5 text-sm font-black uppercase tracking-[0.2em] text-[#111111] transition hover:bg-[#D4AF37]"
+            >
+              Начать официальный экзамен
+            </button>
+
+            <p className="text-center text-xs text-white/30">
+              После начала экзамена изменить данные анкеты будет невозможно.
             </p>
+          </form>
+        </div>
+      </main>
+    );
+  }
+
+  // -----------------------------
+  // EXAM
+  // -----------------------------
+
+  if (stage === "exam" && activeQuestion) {
+    const progress =
+      ((currentQuestion +
+        (secretQuestion ? 0 : 1)) /
+        TOTAL_QUESTIONS) *
+      100;
+
+    return (
+      <main className="min-h-screen bg-[#F7F6F3] text-[#111111]">
+        <div className="mx-auto max-w-5xl px-5 py-6 sm:px-8 sm:py-10">
+          {/* HEADER */}
+
+          <div className="mb-8 flex items-end justify-between gap-5 border-b border-black/10 pb-6">
+            <div>
+              <div className="text-[10px] font-bold tracking-[0.3em] text-[#C9A646]">
+                ФЕДЕРАЛЬНАЯ РЕСПУБЛИКА НИЧЕГОНИЯ
+              </div>
+
+              <h1 className="mt-2 text-2xl font-black sm:text-3xl">
+                Официальный экзамен
+              </h1>
+            </div>
+
+            <div className="text-right">
+              <div className="text-[10px] font-bold uppercase tracking-[0.2em] text-black/40">
+                Время
+              </div>
+
+              <div className="font-mono text-xl font-bold">
+                {formatTime(totalSeconds)}
+              </div>
+            </div>
           </div>
 
-          {showError && (
-            <div className="
-              bg-red-50
-              border
-              border-red-300
-              text-red-700
-              rounded-xl
-              p-4
-              text-center
-              font-medium
-            ">
-              Пожалуйста, заполните все поля анкеты и выберите фото
+          {/* PROGRESS */}
+
+          <div className="mb-8">
+            <div className="mb-2 flex justify-between text-xs font-bold uppercase tracking-[0.15em] text-black/40">
+              <span>
+                {secretQuestion
+                  ? "Секретный вопрос"
+                  : `Вопрос ${Math.min(
+                      currentQuestion + 1,
+                      TOTAL_QUESTIONS
+                    )} из ${TOTAL_QUESTIONS}`}
+              </span>
+
+              <span>
+                {Math.round(
+                  Math.min(progress, 100)
+                )}
+                %
+              </span>
+            </div>
+
+            <div className="h-1 bg-black/10">
+              <div
+                className="h-full bg-[#C9A646] transition-all duration-300"
+                style={{
+                  width: `${Math.min(
+                    progress,
+                    100
+                  )}%`,
+                }}
+              />
+            </div>
+          </div>
+
+          {/* SECRET BANNER */}
+
+          {secretQuestion && (
+            <div
+              className={`mb-6 border px-5 py-4 ${
+                isUltraSecret
+                  ? "border-black bg-[#111111] text-[#C9A646]"
+                  : "border-[#C9A646] bg-[#C9A646]/10"
+              }`}
+            >
+              <div className="text-[10px] font-black uppercase tracking-[0.3em]">
+                {isUltraSecret
+                  ? "⚠ ULTRA-SECRET"
+                  : "Секретный вопрос"}
+              </div>
+
+              <div className="mt-1 text-sm">
+                Ты нашёл то, чего здесь вообще не должно было быть.
+              </div>
+            </div>
+          )}
+
+          {/* QUESTION CARD */}
+
+          <section className="border border-black/10 bg-white p-6 shadow-[0_20px_60px_rgba(0,0,0,0.05)] sm:p-10">
+            <div className="mb-8 flex items-center justify-between gap-5">
+              <div>
+                <div className="text-[10px] font-bold uppercase tracking-[0.25em] text-black/35">
+                  Категория
+                </div>
+
+                <div className="mt-1 text-sm font-bold">
+                  {activeQuestion.category}
+                </div>
+              </div>
+
+              <div className="text-right">
+                <div className="text-[10px] font-bold uppercase tracking-[0.25em] text-black/35">
+                  Время вопроса
+                </div>
+
+                <div
+                  className={`font-mono text-lg font-bold ${
+                    questionSeconds >= 70
+                      ? "text-red-500"
+                      : ""
+                  }`}
+                >
+                  {formatTime(questionSeconds)}
+                </div>
+              </div>
+            </div>
+
+            <h2 className="max-w-3xl text-2xl font-black leading-tight sm:text-4xl">
+              {activeQuestion.question}
+            </h2>
+
+            <div className="mt-10 grid gap-3">
+              {shuffledAnswers.map(
+                (answer, index) => {
+                  const selected =
+                    selectedAnswer === answer;
+
+                  return (
+                    <button
+                      key={answer}
+                      type="button"
+                      onClick={() =>
+                        selectAnswer(answer)
+                      }
+                      className={`flex w-full items-center gap-4 border p-4 text-left transition sm:p-5 ${
+                        selected
+                          ? "border-[#C9A646] bg-[#C9A646]/10"
+                          : "border-black/10 bg-[#F7F6F3] hover:border-black/30"
+                      }`}
+                    >
+                      <span
+                        className={`flex h-9 w-9 shrink-0 items-center justify-center border text-xs font-black ${
+                          selected
+                            ? "border-[#C9A646] bg-[#C9A646] text-[#111111]"
+                            : "border-black/15"
+                        }`}
+                      >
+                        {String.fromCharCode(
+                          65 + index
+                        )}
+                      </span>
+
+                      <span className="font-medium">
+                        {answer}
+                      </span>
+                    </button>
+                  );
+                }
+              )}
+            </div>
+
+            <div className="mt-8 flex flex-col gap-4 border-t border-black/10 pt-6 sm:flex-row sm:items-center sm:justify-between">
+              <div className="text-xs text-black/40">
+                {answerChanges > 0 && (
+                  <>
+                    Изменений ответа:{" "}
+                    <strong>
+                      {answerChanges}
+                    </strong>
+                  </>
+                )}
+              </div>
+
+              <button
+                type="button"
+                onClick={confirmAnswer}
+                disabled={!selectedAnswer}
+                className="bg-[#111111] px-8 py-4 text-sm font-black uppercase tracking-[0.15em] text-white transition hover:bg-black/80 disabled:cursor-not-allowed disabled:opacity-30"
+              >
+                Подтвердить ответ
+              </button>
+            </div>
+          </section>
+
+          {/* FOOTER */}
+
+          <div className="mt-6 flex justify-between text-[10px] font-bold uppercase tracking-[0.2em] text-black/25">
+            <span>Ничегония • 2026</span>
+            <span>
+              Секретов найдено: {secretsFound}
+            </span>
+          </div>
+        </div>
+      </main>
+    );
+  }
+
+  // -----------------------------
+  // RESULT
+  // -----------------------------
+
+  if (stage === "result") {
+    const correctAnswers = answerHistory.filter(
+      (answer) => answer.isCorrect
+    ).length;
+
+    return (
+      <main className="min-h-screen bg-[#111111] text-[#F7F6F3]">
+        <div className="mx-auto max-w-5xl px-6 py-12 sm:px-10 lg:py-20">
+          <div className="border-b border-[#C9A646]/30 pb-10">
+            <div className="text-xs font-bold tracking-[0.35em] text-[#C9A646]">
+              ЭКЗАМЕН ЗАВЕРШЁН
+            </div>
+
+            <h1 className="mt-4 text-4xl font-black sm:text-6xl">
+              Результат
+            </h1>
+          </div>
+
+          <div className="grid gap-6 py-10 sm:grid-cols-3">
+            <div className="border border-white/10 p-6">
+              <div className="text-xs uppercase tracking-[0.2em] text-white/35">
+                Результат
+              </div>
+
+              <div className="mt-3 text-5xl font-black text-[#C9A646]">
+                {score}
+              </div>
+
+              <div className="mt-1 text-xs text-white/35">
+                из 100
+              </div>
+            </div>
+
+            <div className="border border-white/10 p-6">
+              <div className="text-xs uppercase tracking-[0.2em] text-white/35">
+                Правильных ответов
+              </div>
+
+              <div className="mt-3 text-5xl font-black">
+                {correctAnswers}
+              </div>
+
+              <div className="mt-1 text-xs text-white/35">
+                из {answerHistory.length}
+              </div>
+            </div>
+
+            <div className="border border-white/10 p-6">
+              <div className="text-xs uppercase tracking-[0.2em] text-white/35">
+                Время
+              </div>
+
+              <div className="mt-3 text-5xl font-black">
+                {formatTime(totalSeconds)}
+              </div>
+            </div>
+          </div>
+
+          <section className="border border-[#C9A646]/40 bg-[#C9A646]/5 p-8 sm:p-10">
+            <div className="text-xs font-bold uppercase tracking-[0.25em] text-[#C9A646]">
+              Твой официальный статус
+            </div>
+
+            <h2 className="mt-4 text-3xl font-black sm:text-5xl">
+              {title}
+            </h2>
+
+            <p className="mt-5 max-w-2xl text-base leading-7 text-white/60">
+              {verdict}
+            </p>
+          </section>
+
+          {/* ACHIEVEMENTS */}
+
+          <section className="mt-8">
+            <div className="mb-5 text-xs font-bold uppercase tracking-[0.25em] text-[#C9A646]">
+              Полученные достижения
+            </div>
+
+            {unlockedAchievements.length === 0 ? (
+              <div className="border border-white/10 p-6 text-sm text-white/40">
+                Государство пока не смогло придумать тебе достижение.
+              </div>
+            ) : (
+              <div className="grid gap-3 sm:grid-cols-2">
+                {unlockedAchievements.map(
+                  (achievement) => (
+                    <div
+                      key={achievement.id}
+                      className="border border-white/10 p-5"
+                    >
+                      <div className="font-bold">
+                        {achievement.title}
+                      </div>
+
+                      <div className="mt-1 text-sm text-white/40">
+                        {achievement.description}
+                      </div>
+                    </div>
+                  )
+                )}
+              </div>
+            )}
+          </section>
+
+          {error && (
+            <div className="mt-8 border border-red-400/30 bg-red-400/10 px-5 py-4 text-sm text-red-300">
+              {error}
             </div>
           )}
 
           <button
-            onClick={() => {
-              if (
-                !fullName.trim() ||
-                !age ||
-                !country.trim() ||
-                !reason.trim() ||
-                !photoFile
-              ) {
-                setShowError(true);
-                return;
-              }
-
-              setShowError(false);
-              setUserAnswers([]);
-              setCompletedAnswers([]);
-              setCurrentQuestion(0);
-              setSecretQuestion(null);
-              setSecretUsed(false);
-              setTestCompleted(false);
-              submitStartedRef.current = false;
-              setIsSubmitting(false);
-              localStorage.removeItem("nichogonia-test");
-              setStarted(true);
-            }}
-            className="
-              w-full
-              bg-[#111111]
-              text-white
-              py-3
-            sm:py-4
-              rounded-lg
-              font-semibold
-            "
+            type="button"
+            onClick={submitApplication}
+            disabled={isSubmitting}
+            className="mt-10 w-full bg-[#C9A646] px-8 py-5 text-sm font-black uppercase tracking-[0.2em] text-[#111111] transition hover:bg-[#D4AF37] disabled:cursor-not-allowed disabled:opacity-50"
           >
-            ПРОДОЛЖИТЬ
+            {isSubmitting
+              ? "Отправляем заявление..."
+              : "Подать заявление на гражданство"}
           </button>
+
+          <p className="mt-4 text-center text-xs text-white/25">
+            Результат экзамена будет приложен к заявлению.
+          </p>
+        </div>
+      </main>
+    );
+  }
+
+  // -----------------------------
+  // SUBMITTED
+  // -----------------------------
+
+  return (
+    <main className="min-h-screen bg-[#111111] text-[#F7F6F3]">
+      <div className="mx-auto flex min-h-screen max-w-4xl items-center px-6 py-12">
+        <div className="w-full border border-[#C9A646]/40 bg-[#F7F6F3] p-8 text-[#111111] sm:p-12">
+          <div className="text-xs font-bold tracking-[0.3em] text-[#C9A646]">
+            ФЕДЕРАЛЬНАЯ РЕСПУБЛИКА НИЧЕГОНИЯ
+          </div>
+
+          <h1 className="mt-5 text-4xl font-black sm:text-6xl">
+            Заявление принято.
+          </h1>
+
+          <p className="mt-5 max-w-2xl text-base leading-7 text-black/55">
+            Государство официально получило твоё заявление.
+            Теперь остаётся дождаться решения комиссии.
+          </p>
+
+          <div className="mt-10 grid gap-4 sm:grid-cols-2">
+            <div className="border border-black/10 p-6">
+              <div className="text-[10px] font-bold uppercase tracking-[0.2em] text-black/35">
+                Номер заявления
+              </div>
+
+              <div className="mt-3 font-mono text-2xl font-black">
+                {submittedApplicationNumber ||
+                  "НЧ-ОЖИДАНИЕ"}
+              </div>
+            </div>
+
+            <div className="border border-black/10 p-6">
+              <div className="text-[10px] font-bold uppercase tracking-[0.2em] text-black/35">
+                Код доступа
+              </div>
+
+              <div className="mt-3 font-mono text-2xl font-black">
+                {submittedAccessCode ||
+                  "ОЖИДАНИЕ"}
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-8 border border-[#C9A646]/40 bg-[#C9A646]/10 p-6">
+            <div className="font-bold">
+              Сохрани номер заявления и код доступа.
+            </div>
+
+            <div className="mt-2 text-sm leading-6 text-black/55">
+              Они понадобятся для входа в личный кабинет
+              и просмотра статуса заявления.
+            </div>
+          </div>
+
+          <a
+            href="/cabinet"
+            className="mt-8 block bg-[#111111] px-8 py-5 text-center text-sm font-black uppercase tracking-[0.2em] text-white transition hover:bg-black/80"
+          >
+            Перейти в личный кабинет
+          </a>
         </div>
       </div>
     </main>
