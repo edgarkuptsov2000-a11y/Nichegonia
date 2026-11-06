@@ -118,6 +118,8 @@ export default function TestPage() {
 
   const [fullName, setFullName] = useState("");
   const [age, setAge] = useState("");
+  const [birthDate, setBirthDate] = useState("");
+  const [sex, setSex] = useState("");
   const [country, setCountry] = useState("");
   const [reason, setReason] = useState("");
   const [photoFile, setPhotoFile] = useState<File | null>(null);
@@ -272,6 +274,53 @@ export default function TestPage() {
       setError("Укажи возраст.");
       return;
     }
+
+    <div className="grid gap-6 sm:grid-cols-2">
+  <label className="block">
+    <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-[#C9A646]">
+      Дата рождения
+    </span>
+
+    <input
+      type="date"
+      value={birthDate}
+      max={new Date().toISOString().slice(0, 10)}
+      onChange={(event) => setBirthDate(event.target.value)}
+      className="w-full border border-white/10 bg-white/[0.04] px-4 py-4 text-white outline-none transition focus:border-[#C9A646] [color-scheme:dark]"
+    />
+  </label>
+
+  <label className="block">
+    <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-[#C9A646]">
+      Пол
+    </span>
+
+    <select
+      value={sex}
+      onChange={(event) => setSex(event.target.value)}
+      className="w-full border border-white/10 bg-[#171717] px-4 py-4 text-white outline-none transition focus:border-[#C9A646]"
+    >
+      <option value="">Выбери пол</option>
+      <option value="Мужской">Мужской</option>
+      <option value="Женский">Женский</option>
+    </select>
+  </label>
+</div>
+
+    if (!birthDate) {
+  setError("Укажи дату рождения.");
+  return;
+}
+
+if (birthDate > new Date().toISOString().slice(0, 10)) {
+  setError("Дата рождения не может быть в будущем.");
+  return;
+}
+
+if (!sex) {
+  setError("Укажи пол.");
+  return;
+}
 
     if (!country.trim()) {
       setError("Укажи страну проживания.");
@@ -555,6 +604,8 @@ export default function TestPage() {
 
       formData.append("fullName", fullName);
       formData.append("age", age);
+      formData.append("birthDate", birthDate);
+      formData.append("sex", sex);
       formData.append("country", country);
       formData.append("reason", reason);
 

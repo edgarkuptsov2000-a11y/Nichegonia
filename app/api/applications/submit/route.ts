@@ -17,17 +17,41 @@ export async function POST(request: NextRequest) {
 
   const fullName = String(formData.get("fullName") || "").trim();
   const age = Number(formData.get("age") || 0);
+  const birthDate = String(formData.get("birthDate") || "").trim();
+  const sex = String(formData.get("sex") || "").trim();
   const country = String(formData.get("country") || "").trim();
   const reason = String(formData.get("reason") || "").trim();
   const answers = String(formData.get("answers") || "[]");
   const photo = formData.get("photo");
 
-  if (!fullName || !age || !country || !reason) {
-    return NextResponse.json(
-      { error: "Заполните все поля анкеты." },
-      { status: 400 }
-    );
-  }
+  if (
+  !fullName ||
+  !age ||
+  !country ||
+  !reason ||
+  !birthDate ||
+  !sex ||
+  !["Мужской", "Женский"].includes(sex)
+) {
+  return NextResponse.json(
+    { error: "Заполните все поля анкеты корректно." },
+    { status: 400 }
+  );
+}
+
+const parsedBirthDate = new Date(`${birthDate}T00:00:00`);
+
+if (
+  Number.isNaN(parsedBirthDate.getTime()) ||
+  parsedBirthDate.toISOString().slice(0, 10) !== birthDate ||
+  birthDate > new Date().toISOString().slice(0, 10)
+) {
+  return NextResponse.json(
+    { error: "Указана некорректная дата рождения." },
+    { status: 400 }
+  );
+}
+  
 
   let photoUrl: string | null = null;
 
@@ -70,6 +94,8 @@ export async function POST(request: NextRequest) {
       {
         full_name: fullName,
         age,
+        birth_date: birthDate,
+        sex,
         country,
         reason,
         answers,
