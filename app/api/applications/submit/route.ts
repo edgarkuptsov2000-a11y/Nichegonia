@@ -39,18 +39,36 @@ export async function POST(request: NextRequest) {
   );
 }
 
-const parsedBirthDate = new Date(`${birthDate}T00:00:00`);
 
-if (
-  Number.isNaN(parsedBirthDate.getTime()) ||
-  parsedBirthDate.toISOString().slice(0, 10) !== birthDate ||
-  birthDate > new Date().toISOString().slice(0, 10)
-) {
+const dateMatch = birthDate.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+
+if (!dateMatch) {
   return NextResponse.json(
     { error: "Указана некорректная дата рождения." },
     { status: 400 }
   );
 }
+
+const year = Number(dateMatch[1]);
+const month = Number(dateMatch[2]);
+const day = Number(dateMatch[3]);
+
+const parsedBirthDate = new Date(Date.UTC(year, month - 1, day));
+
+const isValidDate =
+  parsedBirthDate.getUTCFullYear() === year &&
+  parsedBirthDate.getUTCMonth() === month - 1 &&
+  parsedBirthDate.getUTCDate() === day;
+
+const today = new Date().toISOString().slice(0, 10);
+
+if (!isValidDate || birthDate > today) {
+  return NextResponse.json(
+    { error: "Указана некорректная дата рождения." },
+    { status: 400 }
+  );
+}
+
   
 
   let photoUrl: string | null = null;

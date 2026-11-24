@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
@@ -8,15 +9,18 @@ type Application = {
   id: number;
   full_name?: string | null;
   age?: number | null;
+  birth_date?: string | null;
+  sex?: string | null;
   country?: string | null;
   reason?: string | null;
-  answers?: string | null;
+  answers?: any;
   status?: string | null;
   application_number?: string | null;
   access_code?: string | null;
   photo_url?: string | null;
   approved_at?: string | null;
   created_at?: string | null;
+  [key: string]: any;
 };
 
 type AdminLog = {
@@ -28,151 +32,130 @@ type AdminLog = {
   created_at?: string | null;
 };
 
-type MainTab = "overview" | "applications" | "citizens" | "verify" | "logs";
+type MainTab =
+  | "overview"
+  | "applications"
+  | "citizens"
+  | "exams"
+  | "messages"
+  | "events"
+  | "verify"
+  | "logs";
+
 type StatusFilter = "all" | "pending" | "approved" | "rejected";
 
-function statusLabel(status?: string | null) {
-  if (status === "Одобрено") return "🟢 Одобрено";
-  if (status === "Отклонено") return "🔴 Отклонено";
-  return "🟡 На рассмотрении";
-}
+const navigation: {
+  id: MainTab;
+  label: string;
+  description: string;
+  icon: string;
+}[] = [
+  { id: "overview", label: "Обзор", description: "Главная панель", icon: "◈" },
+  { id: "applications", label: "Заявки", description: "Гражданство", icon: "▤" },
+  { id: "citizens", label: "Граждане", description: "Реестр граждан", icon: "♙" },
+  { id: "exams", label: "Экзамены", description: "Результаты испытаний", icon: "▣" },
+  { id: "messages", label: "Обращения", description: "Сообщения граждан", icon: "✉" },
+  { id: "events", label: "Мероприятия", description: "Государственные события", icon: "◇" },
+  { id: "verify", label: "Проверка паспортов", description: "Проверка документов", icon: "⌕" },
+  { id: "logs", label: "Журнал действий", description: "История управления", icon: "≡" },
+];
 
-function statusClasses(status?: string | null) {
-  if (status === "Одобрено") return "bg-green-100 text-green-700 border-green-200";
-  if (status === "Отклонено") return "bg-red-100 text-red-700 border-red-200";
-  return "bg-yellow-100 text-yellow-700 border-yellow-200";
-}
-
-function safeText(value?: string | null, fallback = "Не указано") {
-  return value && value.trim() ? value : fallback;
+function safeText(value?: any, fallback = "Не указано") {
+  if (value === null || value === undefined || String(value).trim() === "") {
+    return fallback;
+  }
+  return String(value);
 }
 
 function safeDate(value?: string | null) {
-  return value ? new Date(value).toLocaleString("ru-RU") : "Не указана";
+  if (!value) return "Не указана";
+  const date = new Date(value);
+  return Number.isNaN(date.getTime())
+    ? "Не указана"
+    : date.toLocaleString("ru-RU");
 }
 
-function parseAnswers(answers?: string | null) {
+function formatBirthDate(value?: string | null) {
+  if (!value) return "Не указана";
+
+  // Дата рождения хранится как YYYY-MM-DD. Добавляем локальное время,
+  // чтобы браузер не сдвигал дату на предыдущий день из-за часового пояса.
+  const date = new Date(`${value.slice(0, 10)}T00:00:00`);
+  return Number.isNaN(date.getTime())
+    ? "Не указана"
+    : date.toLocaleDateString("ru-RU");
+}
+
+function statusLabel(status?: string | null) {
+  if (status === "Одобрено") return "Одобрено";
+  if (status === "Отклонено") return "Отклонено";
+  return "На рассмотрении";
+}
+
+function statusClasses(status?: string | null) {
+  if (status === "Одобрено") {
+    return "bg-emerald-50 text-emerald-700 border-emerald-200";
+  }
+  if (status === "Отклонено") {
+    return "bg-red-50 text-red-700 border-red-200";
+  }
+  return "bg-amber-50 text-amber-700 border-amber-200";
+}
+
+function parseAnswers(answers: any) {
   if (!answers) return [];
+
+  if (Array.isArray(answers)) return answers;
+
+  if (typeof answers === "object") {
+    return Array.isArray(answers.answers) ? answers.answers : [];
+  }
 
   try {
     const parsed = JSON.parse(answers);
-    return Array.isArray(parsed) ? parsed : [];
+    if (Array.isArray(parsed)) return parsed;
+    if (Array.isArray(parsed?.answers)) return parsed.answers;
+    return [];
   } catch {
     return [];
   }
+}
+
+function examValue(app: Application, keys: string[]) {
+  for (const key of keys) {
+    const value = app[key];
+    if (value !== undefined && value !== null && value !== "") {
+      return value;
+    }
+  }
+  return null;
+}
+
+function formatExamValue(value: any) {
+  if (value === null || value === undefined || value === "") return "—";
+  if (typeof value === "object") return JSON.stringify(value);
+  return String(value);
 }
 
 export default function AdminPage() {
   const [applications, setApplications] = useState<Application[]>([]);
   const [logs, setLogs] = useState<AdminLog[]>([]);
   const [citizens, setCitizens] = useState<any[]>([]);
+
   const [mainTab, setMainTab] = useState<MainTab>("overview");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("pending");
   const [openedAnswers, setOpenedAnswers] = useState<number | null>(null);
+
   const [search, setSearch] = useState("");
   const [verifyNumber, setVerifyNumber] = useState("");
   const [origin, setOrigin] = useState("");
   const [loading, setLoading] = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   async function logoutAdmin() {
-  await fetch("/api/admin-logout", {
-    method: "POST"
-  });
-
-  window.location.href = "/admin/login";
-}
-
-async function fetchCitizens() {
-  const { data: citizenRows, error } = await supabase
-    .from("citizens")
-    .select("*")
-    .order("id", { ascending: false });
-
-  if (error) {
-    console.log("CITIZENS ERROR:", error);
-    setCitizens([]);
-  } else {
-    const applicationIds = Array.from(
-      new Set(
-        (citizenRows || [])
-          .map((citizen) => citizen.application_id)
-          .filter(Boolean)
-      )
-    );
-
-    const citizenNumbers = Array.from(
-      new Set(
-        (citizenRows || [])
-          .map((citizen) => citizen.citizen_number || citizen.application_number)
-          .filter(Boolean)
-      )
-    );
-
-    let applicationsById = new Map<number | string, any>();
-    let applicationsByNumber = new Map<string, any>();
-
-    if (applicationIds.length > 0) {
-      const { data: applications, error: applicationsError } = await supabase
-        .from("applications")
-        .select("id, application_number, approved_at, photo_url, status")
-        .in("id", applicationIds);
-
-      if (applicationsError) {
-        console.log("CITIZENS APPLICATIONS BY ID ERROR:", applicationsError);
-      } else {
-        applicationsById = new Map(
-          (applications || []).map((application) => [application.id, application])
-        );
-      }
-    }
-
-    if (citizenNumbers.length > 0) {
-      const { data: applications, error: applicationsError } = await supabase
-        .from("applications")
-        .select("id, application_number, approved_at, photo_url, status")
-        .in("application_number", citizenNumbers);
-
-      if (applicationsError) {
-        console.log("CITIZENS APPLICATIONS BY NUMBER ERROR:", applicationsError);
-      } else {
-        applicationsByNumber = new Map(
-          (applications || [])
-            .filter((application) => application.application_number)
-            .map((application) => [application.application_number, application])
-        );
-      }
-    }
-
-    const normalizedCitizens = (citizenRows || []).map((citizen) => {
-      const applicationById = citizen.application_id
-        ? applicationsById.get(citizen.application_id)
-        : null;
-
-      const citizenNumber = citizen.citizen_number || citizen.application_number;
-      const applicationByNumber = citizenNumber
-        ? applicationsByNumber.get(citizenNumber)
-        : null;
-
-      const application = applicationById || applicationByNumber;
-
-      return {
-        ...citizen,
-        approved_at: citizen.approved_at || application?.approved_at || null,
-        photo_url: citizen.photo_url || application?.photo_url || null,
-        application_status: application?.status || null
-      };
-    });
-
-    setCitizens(normalizedCitizens);
+    await fetch("/api/admin-logout", { method: "POST" });
+    window.location.href = "/admin/login";
   }
-}
-
-  useEffect(() => {
-  setOrigin(window.location.origin);
-  fetchData();
-  fetchLogs();
-  fetchCitizens();
-}, []);
 
   async function fetchData() {
     setLoading(true);
@@ -183,7 +166,7 @@ async function fetchCitizens() {
       .order("id", { ascending: false });
 
     if (error) {
-      console.log("ADMIN APPLICATIONS ERROR:", error);
+      console.error("ADMIN APPLICATIONS ERROR:", error);
       setApplications([]);
     } else {
       setApplications(data || []);
@@ -199,23 +182,108 @@ async function fetchCitizens() {
       .order("id", { ascending: false });
 
     if (error) {
-      console.log("ADMIN LOGS ERROR:", error);
+      console.error("ADMIN LOGS ERROR:", error);
       setLogs([]);
     } else {
       setLogs(data || []);
     }
   }
 
-  async function updateStatus(id: number, status: string, app: Application) {
+  async function fetchCitizens() {
+    const { data: citizenRows, error } = await supabase
+      .from("citizens")
+      .select("*")
+      .order("id", { ascending: false });
+
+    if (error) {
+      console.error("CITIZENS ERROR:", error);
+      setCitizens([]);
+      return;
+    }
+
+    const applicationIds = Array.from(
+      new Set(
+        (citizenRows || [])
+          .map((citizen: any) => citizen.application_id)
+          .filter(Boolean)
+      )
+    );
+
+    const citizenNumbers = Array.from(
+      new Set(
+        (citizenRows || [])
+          .map((citizen: any) => citizen.citizen_number || citizen.application_number)
+          .filter(Boolean)
+      )
+    );
+
+    let applicationsById = new Map<any, any>();
+    let applicationsByNumber = new Map<string, any>();
+
+    if (applicationIds.length > 0) {
+      const { data: rows, error: rowsError } = await supabase
+        .from("applications")
+        .select("id, application_number, approved_at, photo_url, status")
+        .in("id", applicationIds);
+
+      if (rowsError) {
+        console.error("CITIZENS APPLICATIONS BY ID ERROR:", rowsError);
+      } else {
+        applicationsById = new Map(
+          (rows || []).map((app: any) => [app.id, app])
+        );
+      }
+    }
+
+    if (citizenNumbers.length > 0) {
+      const { data: rows, error: rowsError } = await supabase
+        .from("applications")
+        .select("id, application_number, approved_at, photo_url, status")
+        .in("application_number", citizenNumbers);
+
+      if (rowsError) {
+        console.error("CITIZENS APPLICATIONS BY NUMBER ERROR:", rowsError);
+      } else {
+        applicationsByNumber = new Map(
+          (rows || [])
+            .filter((app: any) => app.application_number)
+            .map((app: any) => [app.application_number, app])
+        );
+      }
+    }
+
+    const normalized = (citizenRows || []).map((citizen: any) => {
+      const byId = citizen.application_id
+        ? applicationsById.get(citizen.application_id)
+        : null;
+
+      const number = citizen.citizen_number || citizen.application_number;
+      const byNumber = number ? applicationsByNumber.get(number) : null;
+      const application = byId || byNumber;
+
+      return {
+        ...citizen,
+        approved_at: citizen.approved_at || application?.approved_at || null,
+        photo_url: citizen.photo_url || application?.photo_url || null,
+        application_status: application?.status || null,
+      };
+    });
+
+    setCitizens(normalized);
+  }
+
+  useEffect(() => {
+    setOrigin(window.location.origin);
+    fetchData();
+    fetchLogs();
+    fetchCitizens();
+  }, []);
+
+  async function updateStatus(id: number, status: string) {
     const response = await fetch("/api/admin/update-status", {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        id,
-        status
-      })
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id, status }),
     });
 
     if (!response.ok) {
@@ -229,38 +297,39 @@ async function fetchCitizens() {
     await fetchCitizens();
   }
 
-  function getVerifyLink(applicationNumber?: string | null) {
-  if (!applicationNumber) return "";
+  function getVerifyLink(number?: string | null) {
+    if (!number) return "";
+    const path = `/verify?number=${encodeURIComponent(number)}`;
+    return origin ? `${origin}${path}` : path;
+  }
 
-  const path = `/verify?number=${encodeURIComponent(applicationNumber)}`;
-
-  return origin ? `${origin}${path}` : path;
-}
-
-  async function copyVerifyLink(applicationNumber?: string | null) {
-    const link = getVerifyLink(applicationNumber);
+  async function copyVerifyLink(number?: string | null) {
+    const link = getVerifyLink(number);
 
     if (!link) {
-      alert("У этой заявки нет номера паспорта.");
+      alert("У этой записи нет номера паспорта.");
       return;
     }
 
-    await navigator.clipboard.writeText(link);
-    alert("Ссылка проверки скопирована.");
+    try {
+      await navigator.clipboard.writeText(link);
+      alert("Ссылка проверки скопирована.");
+    } catch {
+      alert("Не удалось скопировать ссылку.");
+    }
   }
 
-  const stats = useMemo(() => {
-    const total = applications.length;
-    const pending = applications.filter((app) => app.status === "На рассмотрении").length;
-    const approved = applications.filter((app) => app.status === "Одобрено").length;
-    const rejected = applications.filter((app) => app.status === "Отклонено").length;
+  const stats = useMemo(() => ({
+    total: applications.length,
+    pending: applications.filter((app) => app.status === "На рассмотрении").length,
+    approved: applications.filter((app) => app.status === "Одобрено").length,
+    rejected: applications.filter((app) => app.status === "Отклонено").length,
+  }), [applications]);
 
-    return { total, pending, approved, rejected };
-  }, [applications]);
-
-  const approvedApplications = useMemo(() => {
-    return applications.filter((app) => app.status === "Одобрено");
-  }, [applications]);
+  const approvedApplications = useMemo(
+    () => applications.filter((app) => app.status === "Одобрено"),
+    [applications]
+  );
 
   const visibleApplications = useMemo(() => {
     const value = search.trim().toLowerCase();
@@ -272,51 +341,45 @@ async function fetchCitizens() {
 
       if (!value) return true;
 
-      const fullName = app.full_name || "";
-      const country = app.country || "";
-      const number = app.application_number || "";
-
-      return (
-        fullName.toLowerCase().includes(value) ||
-        country.toLowerCase().includes(value) ||
-        number.toLowerCase().includes(value)
-      );
+      return [
+        app.full_name,
+        app.country,
+        app.application_number,
+      ].some((item) => String(item || "").toLowerCase().includes(value));
     });
   }, [applications, statusFilter, search]);
 
   const visibleCitizens = useMemo(() => {
-  const value = search.trim().toLowerCase();
+    const value = search.trim().toLowerCase();
 
-  return citizens.filter((citizen) => {
-    if (!value) return true;
+    return citizens.filter((citizen) => {
+      if (!value) return true;
 
-    const fullName = citizen.full_name || "";
-    const country = citizen.country || "";
-    const number = citizen.citizen_number || "";
-    const displayStatus = isFirstUnionNumber(number) ? FIRST_UNION_TITLE : "Активный ничегошка";
+      const number = citizen.citizen_number || citizen.application_number || "";
+      const displayStatus = isFirstUnionNumber(number)
+        ? FIRST_UNION_TITLE
+        : "Активный ничегошка";
 
-    return (
-      fullName.toLowerCase().includes(value) ||
-      country.toLowerCase().includes(value) ||
-      number.toLowerCase().includes(value) ||
-      displayStatus.toLowerCase().includes(value)
-    );
-  });
-}, [citizens, search]);
+      return [
+        citizen.full_name,
+        citizen.country,
+        number,
+        displayStatus,
+      ].some((item) => String(item || "").toLowerCase().includes(value));
+    });
+  }, [citizens, search]);
 
   const verifiedApplication = useMemo(() => {
     const value = verifyNumber.trim().toLowerCase();
-
     if (!value) return null;
 
     const citizen = citizens.find((item) => {
-      const number = item.citizen_number || "";
-      const fullName = item.full_name || "";
+      const number = item.citizen_number || item.application_number || "";
+      const name = item.full_name || "";
 
       return (
-        number.toLowerCase() === value ||
         number.toLowerCase().includes(value) ||
-        fullName.toLowerCase().includes(value)
+        name.toLowerCase().includes(value)
       );
     });
 
@@ -330,958 +393,892 @@ async function fetchCitizens() {
         id: linkedApplication?.id || citizen.id,
         full_name: citizen.full_name,
         country: citizen.country,
-        application_number: citizen.citizen_number,
-        status: linkedApplication?.status || (citizen.status === "active" ? "Одобрено" : citizen.status),
+        application_number: citizen.citizen_number || citizen.application_number,
+        status:
+          linkedApplication?.status ||
+          (citizen.status === "active" ? "Одобрено" : citizen.status),
         photo_url: linkedApplication?.photo_url || citizen.photo_url,
-        approved_at: linkedApplication?.approved_at || citizen.approved_at
+        approved_at: linkedApplication?.approved_at || citizen.approved_at,
       };
     }
 
-    return (
-      applications.find((app) => {
-        const number = app.application_number || "";
-        const fullName = app.full_name || "";
+    return applications.find((app) => {
+      const number = app.application_number || "";
+      const name = app.full_name || "";
 
-        return (
-          number.toLowerCase() === value ||
-          number.toLowerCase().includes(value) ||
-          fullName.toLowerCase().includes(value)
-        );
-      }) || null
-    );
+      return (
+        number.toLowerCase().includes(value) ||
+        name.toLowerCase().includes(value)
+      );
+    }) || null;
   }, [applications, citizens, verifyNumber]);
 
+  const examApplications = useMemo(() => {
+    return approvedApplications.filter((app) => {
+      return [
+        "score",
+        "exam_score",
+        "verdict",
+        "exam_version",
+        "correct_answers",
+        "total_questions",
+        "total_seconds",
+        "answer_changes",
+        "secrets_found",
+        "achievements",
+      ].some((key) => app[key] !== undefined && app[key] !== null);
+    });
+  }, [approvedApplications]);
+
+  const currentSection = navigation.find((item) => item.id === mainTab);
+
+  const cardClass =
+    "rounded-2xl border border-[#E8E4DC] bg-white shadow-[0_4px_18px_rgba(25,25,25,0.035)]";
+
+  const buttonPrimary =
+    "rounded-xl bg-[#171918] px-4 py-3 text-sm font-semibold text-white transition hover:bg-[#303632]";
+
+  const buttonSecondary =
+    "rounded-xl border border-[#E5E0D6] bg-white px-4 py-3 text-sm font-semibold text-[#343832] transition hover:bg-[#F7F5F0]";
+
+  const inputClass =
+    "w-full rounded-xl border border-[#E5E0D6] bg-white px-4 py-3 text-sm text-[#20231F] outline-none transition placeholder:text-[#A5A49F] focus:border-[#B99A51] focus:ring-2 focus:ring-[#B99A51]/10";
+
+  function changeTab(tab: MainTab) {
+    setMainTab(tab);
+    setSidebarOpen(false);
+    setSearch("");
+    if (tab === "applications") setStatusFilter("pending");
+  }
 
   return (
-    <main className="
-      min-h-screen
-      bg-gradient-to-b
-      from-[#F7F6F3]
-      to-[#ECE8E1]
-      p-6
-      md:p-10
-      text-[#111111]
-    ">
-      <div className="max-w-7xl mx-auto">
-        <div className="
-          bg-white
-          rounded-3xl
-          shadow-2xl
-          border
-          border-gray-200
-          p-8
-          mb-8
-        ">
-          <p className="
-            text-sm
-            uppercase
-            tracking-[0.3em]
-            text-gray-500
-            font-bold
-            text-center
-            mb-3
-          ">
-            Федеральная Республика
-          </p>
-
-          <h1 className="
-            text-4xl
-            md:text-5xl
-            font-black
-            text-center
-            mb-4
-            tracking-tight
-          ">
-            Центр управления Ничегонией
-          </h1>
-
-          <p className="text-center text-gray-600 text-lg">
-            Заявки, граждане, проверка паспортов и журнал действий в одном месте.
-          </p>
-          
-<div className="flex justify-center mt-6">
-  <button
-    onClick={logoutAdmin}
-    className="
-      bg-red-500
-      text-white
-      px-6
-      py-3
-      rounded-xl
-      font-black
-      hover:bg-red-600
-      transition
-      shadow-md
-    "
-  >
-    Выйти из админки
-  </button>
-</div>
-
-        </div>
-
-        <div className="
-          grid
-          grid-cols-2
-          md:grid-cols-5
-          gap-3
-          mb-8
-        ">
-          {[
-            { id: "overview", label: "Обзор", icon: "📊" },
-            { id: "applications", label: "Заявки", icon: "📄" },
-            { id: "citizens", label: "Граждане", icon: "🪪" },
-            { id: "verify", label: "Проверка", icon: "🔎" },
-            { id: "logs", label: "Журнал", icon: "🧾" }
-          ].map((item) => (
-            <button
-              key={item.id}
-              onClick={() => setMainTab(item.id as MainTab)}
-              className={`
-                rounded-2xl
-                px-5
-                py-4
-                font-black
-                shadow-md
-                border
-                transition
-                ${
-                  mainTab === item.id
-                    ? "bg-[#111111] text-white border-[#111111]"
-                    : "bg-white text-[#111111] border-gray-200 hover:shadow-xl"
-                }
-              `}
-            >
-              <span className="mr-2">{item.icon}</span>
-              {item.label}
-            </button>
-          ))}
-        </div>
-
-        {mainTab === "overview" && (
-          <section>
-            <div className="
-              grid
-              grid-cols-1
-              md:grid-cols-4
-              gap-5
-              mb-8
-            ">
-              <div className="bg-white rounded-3xl p-6 shadow-xl border border-gray-200">
-                <p className="text-gray-500 font-bold mb-2">Всего заявок</p>
-                <p className="text-5xl font-black">{stats.total}</p>
-              </div>
-
-              <div className="bg-yellow-50 rounded-3xl p-6 shadow-xl border border-yellow-200">
-                <p className="text-yellow-700 font-bold mb-2">На рассмотрении</p>
-                <p className="text-5xl font-black text-yellow-800">{stats.pending}</p>
-              </div>
-
-              <div className="bg-green-50 rounded-3xl p-6 shadow-xl border border-green-200">
-                <p className="text-green-700 font-bold mb-2">Одобрено</p>
-                <p className="text-5xl font-black text-green-800">{stats.approved}</p>
-              </div>
-
-              <div className="bg-red-50 rounded-3xl p-6 shadow-xl border border-red-200">
-                <p className="text-red-700 font-bold mb-2">Отклонено</p>
-                <p className="text-5xl font-black text-red-800">{stats.rejected}</p>
-              </div>
-            </div>
-
-            <div className="
-              bg-white
-              rounded-3xl
-              shadow-xl
-              border
-              border-gray-200
-              p-8
-            ">
-              <h2 className="text-3xl font-black mb-5">
-                Быстрые действия
-              </h2>
-
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <button
-                  onClick={() => {
-                    setMainTab("applications");
-                    setStatusFilter("pending");
-                  }}
-                  className="bg-[#111111] text-white rounded-2xl p-5 font-black hover:opacity-90"
-                >
-                  Открыть новые заявки
-                </button>
-
-                <button
-                  onClick={() => setMainTab("citizens")}
-                  className="bg-[#111111] text-white rounded-2xl p-5 font-black hover:opacity-90"
-                >
-                  Открыть граждан
-                </button>
-
-                <button
-                  onClick={() => setMainTab("verify")}
-                  className="bg-[#111111] text-white rounded-2xl p-5 font-black hover:opacity-90"
-                >
-                  Проверить паспорт
-                </button>
-              </div>
-            </div>
-          </section>
+    <main className="min-h-screen bg-[#F5F4F0] text-[#20231F]">
+      <div className="flex min-h-screen">
+        {sidebarOpen && (
+          <button
+            aria-label="Закрыть меню"
+            onClick={() => setSidebarOpen(false)}
+            className="fixed inset-0 z-30 bg-black/40 lg:hidden"
+          />
         )}
 
-        {(mainTab === "applications" || mainTab === "citizens") && (
-          <section>
-            <div className="
-              bg-white
-              rounded-3xl
-              shadow-xl
-              border
-              border-gray-200
-              p-6
-              mb-8
-            ">
-              <label className="block mb-2 font-bold text-gray-700">
-                Поиск
-              </label>
-
-              <input
-                type="text"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Введите имя, страну или номер паспорта"
-                className="
-                  w-full
-                  border-2
-                  border-gray-300
-                  rounded-xl
-                  p-4
-                  bg-white
-                  text-[#111111]
-                  placeholder:text-gray-400
-                  outline-none
-                  focus:border-[#111111]
-                "
-              />
-            </div>
-          </section>
-        )}
-
-        {mainTab === "applications" && (
-          <section>
-            <div className="
-              flex
-              justify-center
-              gap-3
-              flex-wrap
-              mb-8
-            ">
-              {[
-                { id: "pending", label: "На рассмотрении" },
-                { id: "approved", label: "Одобренные" },
-                { id: "rejected", label: "Отклонённые" },
-                { id: "all", label: "Все заявки" }
-              ].map((item) => (
-                <button
-                  key={item.id}
-                  onClick={() => setStatusFilter(item.id as StatusFilter)}
-                  className={`
-                    px-6
-                    py-3
-                    rounded-2xl
-                    font-black
-                    shadow-md
-                    border
-                    transition
-                    ${
-                      statusFilter === item.id
-                        ? "bg-[#111111] text-white border-[#111111]"
-                        : "bg-white text-[#111111] border-gray-200 hover:shadow-xl"
-                    }
-                  `}
-                >
-                  {item.label}
-                </button>
-              ))}
+        <aside
+  className={`fixed inset-y-0 left-0 z-40 flex h-screen w-[270px] flex-col bg-[#171A18] text-white transition-transform duration-300 ${
+    sidebarOpen ? "translate-x-0" : "-translate-x-full"
+  } lg:translate-x-0`}
+>
+          <div className="border-b border-white/10 px-6 py-7">
+            <div className="mb-5 flex items-center gap-3">
+              <div className="flex h-11 w-11 items-center justify-center rounded-xl border border-[#C9AA62]/50 bg-[#C9AA62]/10 text-xl font-bold text-[#D7BD7E]">
+                Н
+              </div>
+              <div>
+                <p className="text-sm font-bold tracking-wide">НИЧЕГОНИЯ</p>
+                <p className="mt-1 text-[10px] uppercase tracking-[0.2em] text-[#A7A99F]">
+                  Государственный портал
+                </p>
+              </div>
             </div>
 
-            {loading ? (
-              <div className="bg-white rounded-3xl p-10 text-center shadow-xl">
-                <p className="text-2xl font-black">Загрузка заявок...</p>
-              </div>
-            ) : visibleApplications.length === 0 ? (
-              <div className="bg-white rounded-3xl p-10 text-center shadow-xl">
-                <p className="text-2xl font-black">Заявок не найдено</p>
-              </div>
-            ) : (
-              <div className="space-y-6">
-                {visibleApplications.map((app) => {
-                  const answers = parseAnswers(app.answers);
-                  const isFirstUnionApplication = isFirstUnionNumber(app.application_number);
-
-                  return (
-                    <div
-                      key={app.id}
-                      className="
-                        bg-white/90
-                        backdrop-blur
-                        p-8
-                        rounded-3xl
-                        shadow-lg
-                        border
-                        border-gray-200
-                        hover:shadow-xl
-                        transition
-                      "
-                    >
-                      <div className="
-                        flex
-                        flex-col
-                        md:flex-row
-                        gap-6
-                        md:items-start
-                        md:justify-between
-                      ">
-                        <div className="flex gap-5">
-                          {app.photo_url ? (
-                            <img
-                              src={app.photo_url}
-                              alt="Фото заявителя"
-                              className="
-  w-20
-  h-20
-  rounded-lg
-  object-cover
-  object-center
-  border-2
-  border-[#C9A646]
-  flex-shrink-0
-"
-                            />
-                          ) : (
-                            <div className="
-  w-20
-  h-20
-  rounded-lg
-  bg-[#EFE8D8]
-  border-2
-  border-[#C9A646]
-  flex
-  items-center
-  justify-center
-  font-black
-  text-2xl
-  flex-shrink-0
-">
-                              Н
-                            </div>
-                          )}
-
-                          <div>
-                            <p className="text-sm text-gray-500 mb-1">
-                              Заявка #{safeText(app.application_number, "Без номера")}
-                            </p>
-
-                            <h2 className="text-3xl font-black mb-3">
-                              {safeText(app.full_name, "Без имени")}
-                            </h2>
-
-                            {isFirstUnionApplication && (
-                              <p className="mb-3 inline-flex rounded-full border border-[#C9A646] bg-[#FFF7D6] px-4 py-2 text-sm font-black text-[#7A5C12]">
-                                👑 {FIRST_UNION_TITLE}
-                              </p>
-                            )}
-
-                            <div className="space-y-2 text-gray-700">
-                              <p>
-                                <span className="font-semibold text-black">Возраст:</span>{" "}
-                                {app.age || "Не указан"}
-                              </p>
-
-                              <p>
-                                <span className="font-semibold text-black">Страна:</span>{" "}
-                                {safeText(app.country)}
-                              </p>
-
-                              <p>
-                                <span className="font-semibold text-black">Причина:</span>{" "}
-                                {safeText(app.reason)}
-                              </p>
-                            </div>
-                          </div>
-                        </div>
-
-                        <span className={`
-                          px-4
-                          py-2
-                          rounded-full
-                          text-sm
-                          font-black
-                          border
-                          ${statusClasses(app.status)}
-                        `}>
-                          {statusLabel(app.status)}
-                        </span>
-                      </div>
-
-                      <div className="flex flex-wrap gap-3 mt-6">
-                        <button
-                          onClick={() =>
-                            setOpenedAnswers(openedAnswers === app.id ? null : app.id)
-                          }
-                          className="
-                            bg-gray-100
-                            hover:bg-gray-200
-                            text-black
-                            px-5
-                            py-3
-                            rounded-xl
-                            transition
-                            font-black
-                          "
-                        >
-                          Ответы на вопросы
-                        </button>
-
-                        {app.application_number && (
-                          <>
-                            <a
-                              href={`/verify?number=${encodeURIComponent(app.application_number)}`}
-                              className="
-                                bg-blue-600
-                                hover:bg-blue-700
-                                text-white
-                                px-5
-                                py-3
-                                rounded-xl
-                                transition
-                                font-black
-                              "
-                            >
-                              Проверить
-                            </a>
-
-                            <button
-                              onClick={() => copyVerifyLink(app.application_number)}
-                              className="
-                                bg-blue-50
-                                hover:bg-blue-100
-                                text-blue-700
-                                border
-                                border-blue-200
-                                px-5
-                                py-3
-                                rounded-xl
-                                transition
-                                font-black
-                              "
-                            >
-                              Скопировать QR-ссылку
-                            </button>
-                          </>
-                        )}
-
-                        {app.status === "На рассмотрении" && (
-                          <>
-                            <button
-                              className="
-                                bg-green-600
-                                hover:bg-green-700
-                                text-white
-                                px-5
-                                py-3
-                                rounded-xl
-                                transition
-                                font-black
-                              "
-                              onClick={() => updateStatus(app.id, "Одобрено", app)}
-                            >
-                              ✓ Одобрить
-                            </button>
-
-                            <button
-                              className="
-                                bg-red-600
-                                hover:bg-red-700
-                                text-white
-                                px-5
-                                py-3
-                                rounded-xl
-                                transition
-                                font-black
-                              "
-                              onClick={() => updateStatus(app.id, "Отклонено", app)}
-                            >
-                              ✕ Отклонить
-                            </button>
-                          </>
-                        )}
-                      </div>
-
-                      {openedAnswers === app.id && (
-                        <div className="
-                          mt-5
-                          bg-[#F7F6F3]
-                          rounded-2xl
-                          p-5
-                          border
-                          border-gray-200
-                          max-h-96
-                          overflow-y-auto
-                        ">
-                          {answers.length === 0 ? (
-                            <p className="text-gray-500">
-                              Ответы не найдены или повреждены.
-                            </p>
-                          ) : (
-                            answers.map((item: any, index: number) => (
-                              <div
-                                key={index}
-                                className="
-                                  mb-4
-                                  bg-white
-                                  rounded-xl
-                                  p-4
-                                  shadow-sm
-                                "
-                              >
-                                <p className="font-semibold text-black mb-2">
-                                  {item.question}
-                                </p>
-
-                                <p className="text-gray-700">
-                                  {item.answer}
-                                </p>
-                              </div>
-                            ))
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </section>
-        )}
-
-        {mainTab === "citizens" && (
-          <section>
-            <div className="
-              bg-white
-              rounded-3xl
-              shadow-xl
-              border
-              border-gray-200
-              p-8
-              mb-8
-            ">
-              <h2 className="text-3xl font-black mb-2">
-                Граждане Ничегонии
-              </h2>
-
-              <p className="text-gray-600">
-                Всего активных граждан: {visibleCitizens.length}
+            <div className="rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3">
+              <p className="text-[10px] uppercase tracking-[0.18em] text-[#92978F]">
+                Система управления
+              </p>
+              <p className="mt-1 text-sm font-semibold text-[#E5D6AD]">
+                Панель администратора
               </p>
             </div>
+          </div>
 
-            {visibleCitizens.length === 0 ? (
-              <div className="bg-white rounded-3xl p-10 text-center shadow-xl">
-                <p className="text-2xl font-black">Граждан не найдено</p>
+          <nav className="admin-sidebar-nav min-h-0 flex-1 space-y-1 overflow-y-auto px-3 py-5">
+            <p className="mb-3 px-3 text-[10px] font-semibold uppercase tracking-[0.2em] text-[#777F76]">
+              Рабочее пространство
+            </p>
+
+            {navigation.map((item) => {
+              const active = mainTab === item.id;
+
+              return (
+                <button
+                  key={item.id}
+                  onClick={() => changeTab(item.id)}
+                  className={`group flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left transition ${
+                    active
+                      ? "border border-[#C9AA62]/25 bg-[#C9AA62]/10 text-[#E4CD91]"
+                      : "border border-transparent text-[#C2C5BE] hover:bg-white/[0.06] hover:text-white"
+                  }`}
+                >
+                  <span
+                    className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-lg ${
+                      active
+                        ? "bg-[#C9AA62]/15 text-[#E4CD91]"
+                        : "bg-white/[0.05] text-[#A9AEA5]"
+                    }`}
+                  >
+                    {item.icon}
+                  </span>
+                  <span className="min-w-0">
+                    <span className="block text-sm font-semibold">{item.label}</span>
+                    <span className="mt-0.5 block text-[10px] text-[#858C83]">
+                      {item.description}
+                    </span>
+                  </span>
+                  {active && (
+                    <span className="ml-auto h-1.5 w-1.5 rounded-full bg-[#D6B96F]" />
+                  )}
+                </button>
+              );
+            })}
+          </nav>
+
+          <div className="border-t border-white/10 p-4">
+            <div className="mb-3 rounded-xl bg-white/[0.04] p-3">
+              <p className="text-[10px] uppercase tracking-[0.16em] text-[#858C83]">
+                Статус системы
+              </p>
+              <div className="mt-2 flex items-center gap-2">
+                <span className="h-2 w-2 rounded-full bg-emerald-400" />
+                <span className="text-xs text-[#D4D8D0]">Панель активна</span>
               </div>
-            ) : (
-              <div className="
-                grid
-                grid-cols-1
-                md:grid-cols-2
-                lg:grid-cols-3
-                gap-6
-              ">
-                {visibleCitizens.map((citizen, index) => {
-                  const verifyLink = getVerifyLink(citizen.citizen_number);
-                  const isFirstUnionCitizen = isFirstUnionNumber(citizen.citizen_number);
-                  const displayStatus = isFirstUnionCitizen ? FIRST_UNION_TITLE : "Активный ничегошка";
-
-                  return (
-                    <div
-                      key={`${citizen.id}-${citizen.citizen_number}-${index}`}
-                      className={`
-                        p-6
-                        rounded-3xl
-                        border
-                        shadow-md
-                        hover:shadow-xl
-                        transition
-                        ${
-                          isFirstUnionCitizen
-                            ? "bg-gradient-to-br from-white via-[#FFF7D6] to-[#F3E4A3] border-[#C9A646]"
-                            : "bg-white border-gray-200"
-                        }
-                      `}
-                    >
-                      <div className="flex items-center gap-4 mb-5">
-                        {citizen.photo_url ? (
-                          <img
-                            src={citizen.photo_url}
-                            alt="Фото гражданина"
-                            className="
-  w-20
-  h-20
-  rounded-lg
-  object-cover
-  object-center
-  border-2
-  border-[#C9A646]
-  flex-shrink-0
-"
-                          />
-                        ) : (
-                          <div className="
-  w-20
-  h-20
-  rounded-lg
-  bg-[#EFE8D8]
-  border-2
-  border-[#C9A646]
-  flex
-  items-center
-  justify-center
-  font-black
-  text-2xl
-  flex-shrink-0
-">
-                            Н
-                          </div>
-                        )}
-
-                        <div>
-                          <p className="text-gray-500 mb-1">
-                            {safeText(citizen.citizen_number, "Без номера")}
-                          </p>
-
-                          <h3 className="text-2xl font-black">
-                            {safeText(citizen.full_name, "Без имени")}
-                          </h3>
-
-                          {isFirstUnionCitizen && (
-                            <p className="mt-2 inline-flex rounded-full border border-[#C9A646] bg-[#FFF7D6] px-3 py-1 text-xs font-black text-[#7A5C12]">
-                              👑 Первый Созыв
-                            </p>
-                          )}
-                        </div>
-                      </div>
-
-                      <p className="mt-3">
-                        🌍 {safeText(citizen.country)}
-                      </p>
-
-                      <p className={`mt-3 font-black ${isFirstUnionCitizen ? "text-[#7A5C12]" : "text-green-700"}`}>
-                        {isFirstUnionCitizen ? `👑 ${displayStatus}` : "🟢 Активен"}
-                      </p>
-
-                      <p className="mt-3 text-sm text-gray-500">
-                        Выдан: {safeDate(citizen.approved_at)}
-                      </p>
-
-                      <div className="flex flex-col gap-3 mt-5">
-                        {citizen.citizen_number && (
-                          <a
-                            href={`/verify?number=${encodeURIComponent(citizen.citizen_number)}`}
-                            className="
-                              bg-[#111111]
-                              text-white
-                              text-center
-                              py-3
-                              rounded-xl
-                              font-black
-                              hover:opacity-90
-                            "
-                          >
-                            Проверить паспорт
-                          </a>
-                        )}
-
-                        <button
-                          onClick={() => copyVerifyLink(citizen.citizen_number)}
-                          className="
-                            bg-blue-50
-                            text-blue-700
-                            border
-                            border-blue-200
-                            text-center
-                            py-3
-                            rounded-xl
-                            font-black
-                            hover:bg-blue-100
-                          "
-                        >
-                          Скопировать QR-ссылку
-                        </button>
-
-                        {verifyLink && (
-                          <p className="text-xs text-gray-500 break-all">
-                            {verifyLink}
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </section>
-        )}
-
-        {mainTab === "verify" && (
-          <section>
-            <div className="
-              bg-white
-              rounded-3xl
-              shadow-xl
-              border
-              border-gray-200
-              p-8
-              mb-8
-            ">
-              <h2 className="text-3xl font-black mb-5">
-                Быстрая проверка паспорта
-              </h2>
-
-              <input
-                type="text"
-                value={verifyNumber}
-                onChange={(e) => setVerifyNumber(e.target.value)}
-                placeholder="Введите номер паспорта или имя"
-                className="
-                  w-full
-                  border-2
-                  border-gray-300
-                  rounded-xl
-                  p-4
-                  bg-white
-                  text-[#111111]
-                  placeholder:text-gray-400
-                  outline-none
-                  focus:border-[#111111]
-                "
-              />
             </div>
 
-            {!verifyNumber.trim() && (
-              <div className="bg-white rounded-3xl p-10 text-center shadow-xl">
-                <p className="text-2xl font-black">
-                  Введите номер паспорта для проверки
+            <button
+              onClick={logoutAdmin}
+              className="w-full rounded-xl border border-white/10 px-4 py-3 text-left text-sm font-semibold text-[#D3D4CE] transition hover:border-red-400/30 hover:bg-red-500/10 hover:text-red-300"
+            >
+              ↗ Выйти из системы
+            </button>
+          </div>
+        </aside>
+
+        <div className="min-w-0 flex-1 lg:ml-[270px]">
+          <header className="sticky top-0 z-20 flex h-[76px] items-center justify-between border-b border-[#E8E4DC] bg-[#F8F7F4]/95 px-5 backdrop-blur md:px-8">
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => setSidebarOpen(true)}
+                className="rounded-lg border border-[#E5E0D6] bg-white px-3 py-2 text-lg lg:hidden"
+              >
+                ☰
+              </button>
+              <div>
+                <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[#99968D]">
+                  Ничегония / Управление
+                </p>
+                <p className="mt-1 text-sm font-bold text-[#252923]">
+                  {currentSection?.label || "Панель управления"}
                 </p>
               </div>
-            )}
+            </div>
 
-            {verifyNumber.trim() && !verifiedApplication && (
-              <div className="
-                bg-red-50
-                rounded-3xl
-                p-10
-                text-center
-                shadow-xl
-                border
-                border-red-200
-              ">
-                <div className="text-6xl mb-4">❌</div>
-                <p className="text-3xl font-black text-red-700">
-                  Паспорт не найден
+            <div className="flex items-center gap-3">
+              <div className="hidden text-right sm:block">
+                <p className="text-xs font-semibold text-[#343832]">Администратор</p>
+                <p className="mt-1 text-[10px] text-[#929087]">Управление государством</p>
+              </div>
+              <div className="flex h-9 w-9 items-center justify-center rounded-full border border-[#D7C99F] bg-[#EFE8D8] text-sm font-bold text-[#8B7136]">
+                А
+              </div>
+            </div>
+          </header>
+
+          <div className="mx-auto max-w-[1500px] p-5 md:p-8">
+            <div className="mb-7 flex flex-col justify-between gap-4 md:flex-row md:items-end">
+              <div>
+                <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.22em] text-[#A58A4C]">
+                  Федеральная Республика Ничегония
+                </p>
+                <h1 className="text-2xl font-bold tracking-tight text-[#20231F] md:text-3xl">
+                  {mainTab === "overview"
+                    ? "Центр управления"
+                    : currentSection?.label}
+                </h1>
+                <p className="mt-2 text-sm text-[#85847D]">
+                  {mainTab === "overview"
+                    ? "Общая информация и основные показатели государства."
+                    : currentSection?.description}
                 </p>
               </div>
-            )}
 
-            {verifiedApplication && (
-              <div className="
-                bg-white
-                rounded-3xl
-                shadow-xl
-                border
-                border-gray-200
-                p-8
-              ">
-                <div className="flex flex-col md:flex-row gap-6">
-                  {verifiedApplication.photo_url && (
-                    <img
-                      src={verifiedApplication.photo_url}
-                      alt="Фото гражданина"
-                      className="
-                        w-36
-                        h-36
-                        rounded-2xl
-                        object-cover
-                        border-4
-                        border-[#C9A646]
-                      "
-                    />
-                  )}
+              <div className="flex items-center gap-2 text-xs text-[#88877F]">
+                <span className="h-2 w-2 rounded-full bg-emerald-500" />
+                Система работает
+              </div>
+            </div>
 
-                  <div className="flex-1">
-                    <p className={`
-                      inline-block
-                      px-4
-                      py-2
-                      rounded-full
-                      text-sm
-                      font-black
-                      border
-                      mb-4
-                      ${statusClasses(verifiedApplication.status)}
-                    `}>
-                      {statusLabel(verifiedApplication.status)}
-                    </p>
-
-                    {isFirstUnionNumber(verifiedApplication.application_number) && (
-                      <p className="mb-4 inline-flex rounded-full border border-[#C9A646] bg-[#FFF7D6] px-4 py-2 text-sm font-black text-[#7A5C12]">
-                        👑 {FIRST_UNION_TITLE}
+            {mainTab === "overview" && (
+              <section className="space-y-6">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                  {[
+                    {
+                      label: "Всего заявок",
+                      value: stats.total,
+                      note: "Все поступившие заявления",
+                      icon: "▤",
+                    },
+                    {
+                      label: "На рассмотрении",
+                      value: stats.pending,
+                      note: "Ожидают решения",
+                      icon: "◷",
+                    },
+                    {
+                      label: "Одобрено",
+                      value: stats.approved,
+                      note: "Получили гражданство",
+                      icon: "✓",
+                    },
+                    {
+                      label: "Отклонено",
+                      value: stats.rejected,
+                      note: "Отрицательное решение",
+                      icon: "×",
+                    },
+                  ].map((item, index) => (
+                    <div key={item.label} className={`${cardClass} p-5 md:p-6`}>
+                      <div className="flex items-start justify-between">
+                        <p className="text-sm font-medium text-[#777970]">{item.label}</p>
+                        <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#F5F2E9] text-lg text-[#A58A4C]">
+                          {item.icon}
+                        </span>
+                      </div>
+                      <p className="mt-5 text-4xl font-bold tracking-tight text-[#242822]">
+                        {item.value}
                       </p>
+                      <p className="mt-2 text-xs text-[#9A9991]">{item.note}</p>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="grid grid-cols-1 gap-5 xl:grid-cols-[1.4fr_1fr]">
+                  <div className={`${cardClass} p-6`}>
+                    <div className="mb-5 flex items-center justify-between">
+                      <div>
+                        <h2 className="text-base font-bold">Последние заявки</h2>
+                        <p className="mt-1 text-xs text-[#96958D]">
+                          Недавно поступившие заявления
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => changeTab("applications")}
+                        className="text-xs font-semibold text-[#9B8043] hover:text-[#6D5727]"
+                      >
+                        Все заявки →
+                      </button>
+                    </div>
+
+                    {loading ? (
+                      <p className="py-8 text-center text-sm text-[#999]">Загрузка...</p>
+                    ) : applications.length === 0 ? (
+                      <p className="py-8 text-center text-sm text-[#999]">
+                        Пока нет заявок
+                      </p>
+                    ) : (
+                      <div className="space-y-3">
+                        {applications.slice(0, 5).map((app) => (
+                          <div
+                            key={app.id}
+                            className="flex flex-col justify-between gap-3 rounded-xl border border-[#F0EEE8] p-4 sm:flex-row sm:items-center"
+                          >
+                            <div className="min-w-0">
+                              <p className="truncate text-sm font-semibold">
+                                {safeText(app.full_name, "Без имени")}
+                              </p>
+                              <p className="mt-1 text-xs text-[#96958D]">
+                                #{safeText(app.application_number, "Без номера")} ·{" "}
+                                {safeDate(app.created_at)}
+                              </p>
+                            </div>
+                            <span className={`w-fit rounded-full border px-3 py-1.5 text-[10px] font-semibold ${statusClasses(app.status)}`}>
+                              {statusLabel(app.status)}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
                     )}
+                  </div>
 
-                    <h2 className="text-4xl font-black mb-3">
-                      {safeText(verifiedApplication.full_name, "Без имени")}
-                    </h2>
-
-                    <p className="text-xl font-black mb-2">
-                      {safeText(verifiedApplication.application_number, "Без номера")}
+                  <div className={`${cardClass} p-6`}>
+                    <h2 className="text-base font-bold">Быстрые действия</h2>
+                    <p className="mt-1 text-xs text-[#96958D]">
+                      Переход к основным инструментам
                     </p>
 
-                    <p className="text-gray-600">
-                      🌍 {safeText(verifiedApplication.country)}
-                    </p>
+                    <div className="mt-5 space-y-3">
+                      <button
+                        onClick={() => changeTab("applications")}
+                        className="flex w-full items-center justify-between rounded-xl bg-[#191D1A] p-4 text-left text-sm font-semibold text-white transition hover:bg-[#303832]"
+                      >
+                        Рассмотреть заявки
+                        <span className="text-[#D7BD7E]">→</span>
+                      </button>
+                      <button
+                        onClick={() => changeTab("citizens")}
+                        className="flex w-full items-center justify-between rounded-xl border border-[#E8E4DC] p-4 text-left text-sm font-semibold transition hover:bg-[#F8F7F3]"
+                      >
+                        Открыть реестр граждан
+                        <span className="text-[#A58A4C]">→</span>
+                      </button>
+                      <button
+                        onClick={() => changeTab("verify")}
+                        className="flex w-full items-center justify-between rounded-xl border border-[#E8E4DC] p-4 text-left text-sm font-semibold transition hover:bg-[#F8F7F3]"
+                      >
+                        Проверить паспорт
+                        <span className="text-[#A58A4C]">→</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
 
-                    <div className="flex flex-wrap gap-3 mt-6">
+                <div className="rounded-2xl border border-[#E6DDC6] bg-[#F2EEDF] p-5">
+                  <p className="text-xs font-bold uppercase tracking-[0.16em] text-[#94783A]">
+                    Информация
+                  </p>
+                  <p className="mt-2 text-sm leading-6 text-[#6F6347]">
+                    Административная панель Ничегонии. Все изменения статусов
+                    заявок выполняются через существующий серверный API.
+                  </p>
+                </div>
+              </section>
+            )}
+
+            {(mainTab === "applications" || mainTab === "citizens") && (
+              <section className={`${cardClass} mb-5 p-5`}>
+                <label className="mb-2 block text-xs font-semibold text-[#777970]">
+                  Поиск по реестру
+                </label>
+                <input
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Имя, страна или номер документа..."
+                  className={inputClass}
+                />
+              </section>
+            )}
+
+            {mainTab === "applications" && (
+              <section>
+                <div className="mb-5 flex flex-wrap gap-2">
+                  {[
+                    { id: "pending", label: "На рассмотрении" },
+                    { id: "approved", label: "Одобренные" },
+                    { id: "rejected", label: "Отклонённые" },
+                    { id: "all", label: "Все заявки" },
+                  ].map((item) => (
+                    <button
+                      key={item.id}
+                      onClick={() => setStatusFilter(item.id as StatusFilter)}
+                      className={`rounded-xl px-4 py-2.5 text-xs font-semibold transition ${
+                        statusFilter === item.id
+                          ? "bg-[#191D1A] text-white"
+                          : "border border-[#E5E0D6] bg-white text-[#686A62] hover:bg-[#F8F7F3]"
+                      }`}
+                    >
+                      {item.label}
+                    </button>
+                  ))}
+                </div>
+
+                {loading ? (
+                  <div className={`${cardClass} p-10 text-center text-sm text-[#999]`}>
+                    Загрузка заявок...
+                  </div>
+                ) : visibleApplications.length === 0 ? (
+                  <div className={`${cardClass} p-10 text-center`}>
+                    <p className="font-semibold">Заявок не найдено</p>
+                    <p className="mt-2 text-sm text-[#999]">
+                      Попробуйте изменить фильтр или поисковый запрос.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {visibleApplications.map((app) => {
+                      const answers = parseAnswers(app.answers);
+                      const firstUnion = isFirstUnionNumber(app.application_number);
+
+                      return (
+                        <article key={app.id} className={`${cardClass} overflow-hidden`}>
+                          <div className="p-5 md:p-6">
+                            <div className="flex flex-col justify-between gap-5 md:flex-row">
+                              <div className="flex min-w-0 gap-4">
+                                {app.photo_url ? (
+                                  <img
+                                    src={app.photo_url}
+                                    alt="Фото заявителя"
+                                    className="h-20 w-20 shrink-0 rounded-xl border border-[#D5C28F] object-cover"
+                                  />
+                                ) : (
+                                  <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-xl border border-[#E4D8B7] bg-[#F3EFE3] text-2xl font-bold text-[#A58A4C]">
+                                    Н
+                                  </div>
+                                )}
+                                <div className="min-w-0">
+                                  <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-[#9A968B]">
+                                    Заявка #{safeText(app.application_number, "Без номера")}
+                                  </p>
+                                  <h2 className="mt-1 break-words text-xl font-bold">
+                                    {safeText(app.full_name, "Без имени")}
+                                  </h2>
+                                  {firstUnion && (
+                                    <span className="mt-2 inline-flex rounded-full border border-[#E4D4A9] bg-[#F8F1DE] px-3 py-1 text-[10px] font-bold text-[#927536]">
+                                      {FIRST_UNION_TITLE}
+                                    </span>
+                                  )}
+                                  <div className="mt-3 space-y-1 text-xs text-[#777970]">
+                                    <p>Возраст: {app.age || "Не указан"}</p>
+                                    <p>Дата рождения: {formatBirthDate(app.birth_date)}</p>
+                                    <p>Пол: {safeText(app.sex)}</p>
+                                    <p>Страна: {safeText(app.country)}</p>
+                                    <p className="break-words">Причина: {safeText(app.reason)}</p>
+                                    <p>Дата подачи: {safeDate(app.created_at)}</p>
+                                  </div>
+                                </div>
+                              </div>
+
+                              <div className="flex shrink-0 flex-col items-start gap-2 md:items-end">
+                                <span className={`rounded-full border px-3 py-1.5 text-[10px] font-semibold ${statusClasses(app.status)}`}>
+                                  {statusLabel(app.status)}
+                                </span>
+                              </div>
+                            </div>
+
+                            <div className="mt-5 flex flex-wrap gap-2 border-t border-[#F0EEE8] pt-5">
+                              <button
+                                onClick={() =>
+                                  setOpenedAnswers(openedAnswers === app.id ? null : app.id)
+                                }
+                                className={buttonSecondary}
+                              >
+                                {openedAnswers === app.id ? "Скрыть ответы" : "Ответы на вопросы"}
+                              </button>
+
+                              {app.application_number && (
+                                <>
+                                  <a
+                                    href={`/verify?number=${encodeURIComponent(app.application_number)}`}
+                                    className={buttonSecondary}
+                                  >
+                                    Проверить паспорт
+                                  </a>
+                                  <button
+                                    onClick={() => copyVerifyLink(app.application_number)}
+                                    className={buttonSecondary}
+                                  >
+                                    Скопировать ссылку
+                                  </button>
+                                </>
+                              )}
+
+                              {app.status === "На рассмотрении" && (
+                                <>
+                                  <button
+                                    onClick={() => updateStatus(app.id, "Одобрено")}
+                                    className="rounded-xl bg-emerald-700 px-4 py-3 text-sm font-semibold text-white transition hover:bg-emerald-800"
+                                  >
+                                    ✓ Одобрить
+                                  </button>
+                                  <button
+                                    onClick={() => updateStatus(app.id, "Отклонено")}
+                                    className="rounded-xl bg-red-700 px-4 py-3 text-sm font-semibold text-white transition hover:bg-red-800"
+                                  >
+                                    Отклонить
+                                  </button>
+                                </>
+                              )}
+                            </div>
+
+                            {openedAnswers === app.id && (
+                              <div className="mt-5 rounded-xl border border-[#EAE5D9] bg-[#F8F7F3] p-4">
+                                <p className="mb-3 text-xs font-bold uppercase tracking-[0.12em] text-[#8B7748]">
+                                  Ответы заявителя
+                                </p>
+                                {answers.length === 0 ? (
+                                  <p className="text-sm text-[#929087]">
+                                    Ответы не найдены или имеют другой формат.
+                                  </p>
+                                ) : (
+                                  <div className="space-y-3">
+                                    {answers.map((item: any, index: number) => (
+                                      <div key={index} className="rounded-lg bg-white p-4">
+                                        <p className="text-sm font-semibold">
+                                          {safeText(item.question, `Вопрос ${index + 1}`)}
+                                        </p>
+                                        <p className="mt-2 whitespace-pre-wrap text-sm text-[#777970]">
+                                          {safeText(item.answer)}
+                                        </p>
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        </article>
+                      );
+                    })}
+                  </div>
+                )}
+              </section>
+            )}
+
+            {mainTab === "citizens" && (
+              <section>
+                <div className={`${cardClass} mb-5 flex flex-col justify-between gap-2 p-5 sm:flex-row sm:items-center`}>
+                  <div>
+                    <h2 className="font-bold">Реестр граждан Ничегонии</h2>
+                    <p className="mt-1 text-xs text-[#929087]">
+                      Зарегистрированные граждане и их документы
+                    </p>
+                  </div>
+                  <p className="text-sm font-semibold">
+                    Найдено записей: {visibleCitizens.length}
+                  </p>
+                </div>
+
+                {visibleCitizens.length === 0 ? (
+                  <div className={`${cardClass} p-10 text-center`}>
+                    <p className="font-semibold">Граждан не найдено</p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+                    {visibleCitizens.map((citizen, index) => {
+                      const number = citizen.citizen_number || citizen.application_number;
+                      const firstUnion = isFirstUnionNumber(number);
+                      const verifyLink = getVerifyLink(number);
+
+                      return (
+                        <article
+                          key={`${citizen.id}-${number}-${index}`}
+                          className={`${cardClass} p-5`}
+                        >
+                          <div className="flex items-start gap-4">
+                            {citizen.photo_url ? (
+                              <img
+                                src={citizen.photo_url}
+                                alt="Фото гражданина"
+                                className="h-16 w-16 shrink-0 rounded-xl border border-[#D5C28F] object-cover"
+                              />
+                            ) : (
+                              <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-xl border border-[#E4D8B7] bg-[#F3EFE3] text-xl font-bold text-[#A58A4C]">
+                                Н
+                              </div>
+                            )}
+                            <div className="min-w-0 flex-1">
+                              <p className="text-[10px] uppercase tracking-[0.15em] text-[#99958B]">
+                                {safeText(number, "Без номера")}
+                              </p>
+                              <h3 className="mt-1 break-words text-lg font-bold">
+                                {safeText(citizen.full_name, "Без имени")}
+                              </h3>
+                              {firstUnion && (
+                                <span className="mt-2 inline-flex rounded-full border border-[#E4D4A9] bg-[#F8F1DE] px-3 py-1 text-[10px] font-bold text-[#927536]">
+                                  {FIRST_UNION_TITLE}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+
+                          <div className="mt-4 space-y-2 border-t border-[#F0EEE8] pt-4 text-xs text-[#777970]">
+                            <p>Страна: {safeText(citizen.country)}</p>
+                            <p>Статус: {firstUnion ? FIRST_UNION_TITLE : "Активный гражданин"}</p>
+                            <p>Дата выдачи: {safeDate(citizen.approved_at)}</p>
+                          </div>
+
+                          <div className="mt-4 flex flex-wrap gap-2">
+                            {number && (
+                              <a
+                                href={`/verify?number=${encodeURIComponent(number)}`}
+                                className={buttonPrimary}
+                              >
+                                Проверить паспорт
+                              </a>
+                            )}
+                            <button
+                              onClick={() => copyVerifyLink(number)}
+                              className={buttonSecondary}
+                            >
+                              Скопировать ссылку
+                            </button>
+                          </div>
+
+                          {verifyLink && (
+                            <p className="mt-3 break-all text-[10px] text-[#A09E96]">
+                              {verifyLink}
+                            </p>
+                          )}
+                        </article>
+                      );
+                    })}
+                  </div>
+                )}
+              </section>
+            )}
+
+            {mainTab === "exams" && (
+              <section className="space-y-5">
+                <div className={`${cardClass} p-5`}>
+                  <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
+                    <div>
+                      <h2 className="font-bold">Результаты экзаменов</h2>
+                      <p className="mt-1 text-xs text-[#929087]">
+                        Данные экзамена, сохранённые в заявках на гражданство
+                      </p>
+                    </div>
+                    <div className="rounded-xl bg-[#F3EFE3] px-4 py-3">
+                      <p className="text-[10px] uppercase tracking-[0.12em] text-[#8F805B]">
+                        Найдено результатов
+                      </p>
+                      <p className="mt-1 text-xl font-bold">{examApplications.length}</p>
+                    </div>
+                  </div>
+                </div>
+
+                {examApplications.length === 0 ? (
+                  <div className={`${cardClass} p-10 text-center`}>
+                    <div className="text-3xl text-[#B7A36E]">▣</div>
+                    <p className="mt-3 font-semibold">Данные экзаменов пока не найдены</p>
+                    <p className="mx-auto mt-2 max-w-lg text-sm leading-6 text-[#929087]">
+                      В одобренных заявках не обнаружены известные поля с результатами
+                      экзамена. Когда проверим структуру сохранения результатов,
+                      подключим сюда полную статистику.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {examApplications.map((app) => {
+                      const score = examValue(app, ["score", "exam_score"]);
+                      const correct = examValue(app, ["correct_answers"]);
+                      const totalQuestions = examValue(app, ["total_questions"]);
+                      const verdict = examValue(app, ["verdict"]);
+                      const version = examValue(app, ["exam_version"]);
+                      const seconds = examValue(app, ["total_seconds"]);
+                      const changes = examValue(app, ["answer_changes"]);
+                      const secrets = examValue(app, ["secrets_found"]);
+                      const achievements = examValue(app, ["achievements"]);
+
+                      return (
+                        <article key={app.id} className={`${cardClass} p-5`}>
+                          <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-start">
+                            <div>
+                              <p className="text-[10px] uppercase tracking-[0.15em] text-[#99958B]">
+                                {safeText(app.application_number, "Без номера")}
+                              </p>
+                              <h3 className="mt-1 text-lg font-bold">
+                                {safeText(app.full_name, "Без имени")}
+                              </h3>
+                            </div>
+                            {verdict !== null && (
+                              <span className="w-fit rounded-full border border-[#E4D4A9] bg-[#F8F1DE] px-3 py-1.5 text-xs font-semibold text-[#927536]">
+                                {formatExamValue(verdict)}
+                              </span>
+                            )}
+                          </div>
+
+                          <div className="mt-5 grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-4">
+                            {[
+                              ["Результат", score],
+                              ["Правильных ответов", correct],
+                              ["Всего вопросов", totalQuestions],
+                              ["Версия экзамена", version],
+                              ["Время прохождения", seconds],
+                              ["Изменения ответов", changes],
+                              ["Найдено секретов", secrets],
+                              ["Достижения", achievements],
+                            ]
+                              .filter(([, value]) => value !== null)
+                              .map(([label, value]) => (
+                                <div key={String(label)} className="rounded-xl bg-[#F7F6F2] p-3">
+                                  <p className="text-[10px] text-[#99958B]">{label}</p>
+                                  <p className="mt-1 break-words text-sm font-semibold">
+                                    {formatExamValue(value)}
+                                  </p>
+                                </div>
+                              ))}
+                          </div>
+                        </article>
+                      );
+                    })}
+                  </div>
+                )}
+              </section>
+            )}
+
+            {(mainTab === "messages" || mainTab === "events") && (
+              <section className={`${cardClass} overflow-hidden`}>
+                <div className="border-b border-[#EEEAE1] bg-[#FAF9F6] px-6 py-5">
+                  <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#A58A4C]">
+                    Новый модуль
+                  </p>
+                  <h2 className="mt-2 text-xl font-bold">
+                    {mainTab === "messages"
+                      ? "Сообщения и обращения граждан"
+                      : "Управление мероприятиями"}
+                  </h2>
+                </div>
+
+                <div className="px-6 py-14 text-center">
+                  <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl border border-[#E5D9B9] bg-[#F5F0E3] text-2xl text-[#A58A4C]">
+                    {mainTab === "messages" ? "✉" : "◇"}
+                  </div>
+                  <h3 className="mt-5 text-lg font-bold">Раздел находится в разработке</h3>
+                  <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-[#929087]">
+                    {mainTab === "messages"
+                      ? "Здесь появится управление сообщениями, обращениями граждан и внутренней коммуникацией. Подключим раздел после создания таблиц и необходимых API."
+                      : "Здесь появится создание мероприятий, управление датами, регистрацией участников и публикацией событий. Подключим раздел после проектирования базы данных."}
+                  </p>
+                  <span className="mt-5 inline-flex rounded-full border border-[#E6DDC6] bg-[#F8F5EB] px-4 py-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-[#967C43]">
+                    Модуль запланирован
+                  </span>
+                </div>
+              </section>
+            )}
+
+            {mainTab === "verify" && (
+              <section className="space-y-5">
+                <div className={`${cardClass} p-6`}>
+                  <h2 className="text-base font-bold">Проверка подлинности документа</h2>
+                  <p className="mt-1 text-xs text-[#929087]">
+                    Введите номер паспорта или имя гражданина
+                  </p>
+                  <div className="mt-5">
+                    <input
+                      value={verifyNumber}
+                      onChange={(e) => setVerifyNumber(e.target.value)}
+                      placeholder="Например, ПС-1 или НЧ-000001"
+                      className={inputClass}
+                    />
+                  </div>
+                </div>
+
+                {!verifyNumber.trim() ? (
+                  <div className={`${cardClass} p-10 text-center`}>
+                    <div className="text-3xl text-[#B7A36E]">⌕</div>
+                    <p className="mt-3 font-semibold">Ожидание поискового запроса</p>
+                    <p className="mt-1 text-sm text-[#929087]">
+                      Введите данные документа для проверки.
+                    </p>
+                  </div>
+                ) : !verifiedApplication ? (
+                  <div className="rounded-2xl border border-red-200 bg-red-50 p-8 text-center">
+                    <p className="text-lg font-bold text-red-800">Запись не найдена</p>
+                    <p className="mt-2 text-sm text-red-700">
+                      Проверьте правильность введённого номера или имени.
+                    </p>
+                  </div>
+                ) : (
+                  <div className={`${cardClass} p-6`}>
+                    <div className="flex flex-col gap-5 sm:flex-row">
+                      {verifiedApplication.photo_url && (
+                        <img
+                          src={verifiedApplication.photo_url}
+                          alt="Фото гражданина"
+                          className="h-28 w-28 rounded-xl border border-[#D5C28F] object-cover"
+                        />
+                      )}
+                      <div className="min-w-0 flex-1">
+                        <span className={`inline-flex rounded-full border px-3 py-1.5 text-[10px] font-semibold ${statusClasses(verifiedApplication.status)}`}>
+                          {statusLabel(verifiedApplication.status)}
+                        </span>
+
+                        {isFirstUnionNumber(verifiedApplication.application_number) && (
+                          <p className="mt-2 text-xs font-semibold text-[#987A37]">
+                            {FIRST_UNION_TITLE}
+                          </p>
+                        )}
+
+                        <h2 className="mt-3 break-words text-2xl font-bold">
+                          {safeText(verifiedApplication.full_name, "Без имени")}
+                        </h2>
+                        <p className="mt-2 text-sm font-semibold text-[#777970]">
+                          {safeText(verifiedApplication.application_number, "Без номера")}
+                        </p>
+                        <p className="mt-1 text-sm text-[#929087]">
+                          Страна: {safeText(verifiedApplication.country)}
+                        </p>
+                        <p className="mt-1 text-xs text-[#929087]">
+                          Выдан: {safeDate(verifiedApplication.approved_at)}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="mt-6 flex flex-wrap gap-2 border-t border-[#F0EEE8] pt-5">
                       {verifiedApplication.application_number && (
                         <a
-                          href={`/verify?number=${encodeURIComponent(
-                            verifiedApplication.application_number
-                          )}`}
-                          className="
-                            bg-[#111111]
-                            text-white
-                            px-5
-                            py-3
-                            rounded-xl
-                            font-black
-                            hover:opacity-90
-                          "
+                          href={`/verify?number=${encodeURIComponent(verifiedApplication.application_number)}`}
+                          className={buttonPrimary}
                         >
                           Открыть публичную проверку
                         </a>
                       )}
-
                       <button
-                        onClick={() =>
-                          copyVerifyLink(verifiedApplication.application_number)
-                        }
-                        className="
-                          bg-blue-50
-                          text-blue-700
-                          border
-                          border-blue-200
-                          px-5
-                          py-3
-                          rounded-xl
-                          font-black
-                          hover:bg-blue-100
-                        "
+                        onClick={() => copyVerifyLink(verifiedApplication.application_number)}
+                        className={buttonSecondary}
                       >
                         Скопировать ссылку
                       </button>
                     </div>
                   </div>
-                </div>
-              </div>
+                )}
+              </section>
             )}
-          </section>
-        )}
 
-        {mainTab === "logs" && (
-          <section>
-            <div className="
-              bg-white
-              rounded-3xl
-              shadow-xl
-              border
-              border-gray-200
-              p-8
-            ">
-              <div className="
-                flex
-                flex-col
-                md:flex-row
-                md:items-center
-                md:justify-between
-                gap-4
-                mb-6
-              ">
-                <h2 className="text-3xl font-black">
-                  Журнал действий
-                </h2>
-
-                <button
-                  onClick={fetchLogs}
-                  className="
-                    bg-[#111111]
-                    text-white
-                    px-5
-                    py-3
-                    rounded-xl
-                    font-black
-                    hover:opacity-90
-                  "
-                >
-                  Обновить журнал
-                </button>
-              </div>
-
-              {logs.length === 0 ? (
-                <p className="text-center text-gray-500">
-                  Пока нет записей
-                </p>
-              ) : (
-                <div className="space-y-4">
-                  {logs.map((log) => (
-                    <div
-                      key={log.id}
-                      className="
-                        bg-gray-50
-                        border
-                        border-gray-200
-                        rounded-2xl
-                        p-4
-                      "
-                    >
-                      <p className="font-black text-lg">
-                        {safeText(log.full_name, "Без имени")}
-                      </p>
-
-                      <p className="mt-1">
-                        Действие:
-                        <span
-                          className={
-                            log.action === "Одобрено"
-                              ? "text-green-600 font-semibold ml-2"
-                              : "text-red-600 font-semibold ml-2"
-                          }
-                        >
-                          {log.action}
-                        </span>
-                      </p>
-
-                      <p>
-                        Заявка: #{safeText(log.application_number, "Без номера")}
-                      </p>
-
-                      <p className="text-sm text-gray-500 mt-2">
-                        {safeDate(log.created_at)}
-                      </p>
-                    </div>
-                  ))}
+            {mainTab === "logs" && (
+              <section className={`${cardClass} p-5 md:p-6`}>
+                <div className="mb-5 flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
+                  <div>
+                    <h2 className="font-bold">История административных действий</h2>
+                    <p className="mt-1 text-xs text-[#929087]">
+                      Записи из журнала admin_logs
+                    </p>
+                  </div>
+                  <button onClick={fetchLogs} className={buttonPrimary}>
+                    ↻ Обновить журнал
+                  </button>
                 </div>
-              )}
-            </div>
-          </section>
-        )}
+
+                {logs.length === 0 ? (
+                  <div className="py-12 text-center">
+                    <p className="font-semibold">Записей пока нет</p>
+                    <p className="mt-1 text-sm text-[#929087]">
+                      Здесь будут отображаться действия администраторов.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {logs.map((log) => (
+                      <div
+                        key={log.id}
+                        className="flex flex-col justify-between gap-3 rounded-xl border border-[#EEEAE1] p-4 sm:flex-row sm:items-center"
+                      >
+                        <div>
+                          <p className="text-sm font-semibold">
+                            {safeText(log.full_name, "Без имени")}
+                          </p>
+                          <p className="mt-1 text-xs text-[#777970]">
+                            Действие:{" "}
+                            <span className="font-semibold text-[#987A37]">
+                              {safeText(log.action)}
+                            </span>
+                          </p>
+                          <p className="mt-1 text-xs text-[#929087]">
+                            Заявка: #{safeText(log.application_number, "Без номера")}
+                          </p>
+                        </div>
+                        <p className="text-xs text-[#929087]">
+                          {safeDate(log.created_at)}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </section>
+            )}
+
+            <footer className="mt-10 flex flex-col justify-between gap-2 border-t border-[#E5E1D8] py-5 text-[10px] text-[#A09E96] sm:flex-row">
+              <p>Федеральная Республика Ничегония · Центр управления</p>
+              <p>Ничего. Но стабильно.</p>
+            </footer>
+          </div>
+        </div>
       </div>
     </main>
   );

@@ -16,6 +16,8 @@ type Application = {
   status: string;
   approved_at?: string | null;
   photo_url?: string | null;
+  birth_date?: string | null;
+  sex?: string | null;
 };
 
 export default function CabinetPage() {
@@ -176,9 +178,17 @@ export default function CabinetPage() {
 
     citizenTitle: citizenDisplayStatus,
 
-    birthDate: "",
-    birthPlace: "",
-    sex: "",
+    birthDate: application.birth_date
+  ? new Date(`${application.birth_date}T00:00:00`).toLocaleDateString("ru-RU")
+  : "Не указана",
+
+birthPlace: "",
+
+sex: application.sex === "Мужской"
+  ? "М"
+  : application.sex === "Женский"
+    ? "Ж"
+    : application.sex || "Не указан",
   };
 
   return (

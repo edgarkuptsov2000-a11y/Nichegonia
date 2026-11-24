@@ -863,3 +863,28 @@
   font-size: 11px;
   letter-spacing: 2px;
 }
+
+.passport-fields {
+  min-width: 0;
+  overflow: visible;
+  gap: 10px;
+}
+
+.passport-content {
+  align-items: start;
+  overflow: visible;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: visible;
+}
+
+.field-label,
+.field-value {
+  display: block;
+  visibility: visible;
+  opacity: 1;
+}

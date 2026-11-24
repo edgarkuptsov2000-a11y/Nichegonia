@@ -13,7 +13,7 @@ export default function Home() {
       {/* HEADER */}
       {/* ========================================================= */}
 
-      <header className="border-b border-black/10 bg-[#F7F6F3]/95 backdrop-blur-md sticky top-0 z-40">
+      <header className="border-b border-black/10 bg-[#F7F6F3] sticky top-0 z-40">
         <div className="max-w-7xl mx-auto px-5 sm:px-8 h-[76px] flex items-center justify-between">
 
           <a href="/" className="flex items-center gap-3 group">
@@ -98,7 +98,7 @@ export default function Home() {
       {/* HERO */}
       {/* ========================================================= */}
 
-      <section className="relative min-h-[calc(100dvh-76px)] flex items-center overflow-hidden bg-[#111111] text-white">
+      <section className="relative min-h-[620px] lg:min-h-[680px] flex items-center overflow-hidden bg-[#111111] text-white">
 
         {/* декоративные элементы */}
 
@@ -161,7 +161,7 @@ export default function Home() {
         </div>
 
 
-        <div className="relative z-10 max-w-7xl mx-auto w-full px-5 sm:px-8 py-20 sm:py-28">
+        <div className="relative z-10 max-w-7xl mx-auto w-full px-5 sm:px-8 py-20 sm:py-24">
 
           <div className="max-w-5xl">
 
@@ -336,9 +336,9 @@ export default function Home() {
       {/* ========================================================= */}
 
       <section
-        id="about"
-        className="max-w-7xl mx-auto px-5 sm:px-8 py-24 sm:py-32"
-      >
+  id="about"
+  className="max-w-7xl mx-auto px-5 sm:px-8 py-16 sm:py-20"
+>
 
         <div className="
           grid
@@ -458,7 +458,7 @@ export default function Home() {
       {/* FLAG / SYMBOL */}
       {/* ========================================================= */}
 
-      <section className="bg-[#111111] text-white py-20 sm:py-28">
+      <section className="bg-[#F7F6F3] text-[#111111] py-16 sm:py-20">
 
         <div className="max-w-7xl mx-auto px-5 sm:px-8">
 
@@ -483,12 +483,13 @@ export default function Home() {
               <div className="relative overflow-hidden bg-[#F7F6F3]">
 
                 <Image
-                  src="/flag.png"
-                  alt="Государственный флаг Ничегонии"
-                  width={1600}
-                  height={900}
-                  className="w-full h-auto"
-                />
+  src="/flag.png"
+  alt="Государственный флаг Ничегонии"
+  width={1600}
+  height={900}
+  sizes="(max-width: 1024px) 100vw, 60vw"
+  className="w-full h-auto"
+/>
 
               </div>
 
@@ -520,7 +521,7 @@ export default function Home() {
               </h2>
 
               <p className="
-                text-white/60
+                text-gray-600
                 leading-relaxed
                 max-w-lg
                 mb-8
@@ -540,7 +541,7 @@ export default function Home() {
                   text-sm
                   font-serif
                   italic
-                  text-white/80
+                  text-[#111111]
                 ">
                   Ничего. Но стабильно.
                 </p>
@@ -560,7 +561,7 @@ export default function Home() {
       {/* EMBLEM / QUICK FACTS */}
       {/* ========================================================= */}
 
-      <section className="max-w-6xl mx-auto px-4 sm:px-6 py-10 sm:py-20 text-center">
+      <section className="max-w-7xl mx-auto px-5 sm:px-8 py-16 sm:py-20 text-center">
 
         <div className="
           grid
@@ -582,6 +583,7 @@ export default function Home() {
     alt="Герб Ничегонии"
     width={260}
     height={260}
+    sizes="(max-width: 640px) 192px, 260px"
     className="relative z-10 w-40 sm:w-48 h-auto"
   />
 
@@ -704,7 +706,7 @@ export default function Home() {
       {/* CITIZENSHIP */}
       {/* ========================================================= */}
 
-      <section className="bg-[#EDE9DF] py-24 sm:py-32">
+      <section className="bg-[#F7F6F3] py-16 sm:py-20">
 
         <div className="max-w-7xl mx-auto px-5 sm:px-8">
 
@@ -899,7 +901,7 @@ export default function Home() {
       {/* FIRST UNION */}
       {/* ========================================================= */}
 
-      <section className="max-w-7xl mx-auto px-5 sm:px-8 py-24 sm:py-32">
+      <section className="max-w-7xl mx-auto px-5 sm:px-8 py-16 sm:py-20">
 
         <div className="
           flex
@@ -1062,7 +1064,7 @@ export default function Home() {
 
       <section
         id="documents"
-        className="bg-[#111111] text-white py-24 sm:py-32"
+        className="bg-[#111111] text-white py-16 sm:py-20"
       >
 
         <div className="max-w-7xl mx-auto px-5 sm:px-8">
